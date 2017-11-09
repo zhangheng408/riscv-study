@@ -1,0 +1,46 @@
+diff --git a/hw/riscv/riscv_board.c b/hw/riscv/riscv_board.c
+index 5060cc4..4cea706 100644
+--- a/hw/riscv/riscv_board.c
++++ b/hw/riscv/riscv_board.c
+@@ -203,6 +203,24 @@ static void riscv_board_init(MachineState *args)
+         "  vendor ucb;\n"
+         "  arch spike;\n"
+         "};\n"
++        "plic { \n"
++        "  interface \"plic\"; \n"
++        "  ndevs 2; \n"
++        "  priority { mem { 0x60000000 0x60000fff; }; }; \n"
++        "  pending  { mem { 0x60001000 0x6000107f; }; }; \n"
++        "  0 { \n"
++        "    0 { \n"
++        "      m { \n"
++        "        ie  { mem { 0x60002000 0x6000207f; }; }; \n"
++        "        ctl { mem { 0x60200000 0x60200007; }; }; \n"
++        "      }; \n"
++        "      s { \n"
++        "        ie  { mem { 0x60002080 0x600020ff; }; }; \n"
++        "        ctl { mem { 0x60201000 0x60201007; }; }; \n"
++        "      }; \n"
++        "    }; \n"
++        "  }; \n"
++        "}; \n"
+         "rtc {\n"
+         "  addr 0x" "40000000" ";\n"
+         "};\n"
+diff --git a/target-riscv/translate_init.c b/target-riscv/translate_init.c
+index 479ff1f..4dab960 100644
+--- a/target-riscv/translate_init.c
++++ b/target-riscv/translate_init.c
+@@ -24,8 +24,10 @@
+ #define MCPUID_I       (1L << ('I' - 'A'))
+ #define MCPUID_M       (1L << ('M' - 'A'))
+ #define MCPUID_A       (1L << ('A' - 'A'))
+-#define MCPUID_F       (1L << ('F' - 'A'))
+-#define MCPUID_D       (1L << ('D' - 'A'))
++#define MCPUID_F       0
++//(1L << ('F' - 'A'))
++#define MCPUID_D       0
++//(1L << ('D' - 'A'))
+ 
+ struct riscv_def_t {
+     const char *name;
