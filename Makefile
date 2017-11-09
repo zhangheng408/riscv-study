@@ -1,14 +1,27 @@
-DIR_RISCV		?= $(wildcard ~/riscv)
-DIR_WORKING		?= $(DIR_RISCV)/working
-DIR_INSTALL		?= $(DIR_RISCV)/install
+DIR_RISCV			:= $(wildcard ~/riscv)
+DIR_WORKING			:= $(DIR_RISCV)/working
+DIR_INSTALL			:= $(DIR_RISCV)/install
 
+RISCV				:= $(DIR_INSTALL)/riscv-gnu-toolchain
+PATH				:= $(RISCV)/bin:$(PATH)
 
-REPO_RISCV		?= https://github.com/riscv
-REPO_GNU		?= $(REPO_RISCV)/riscv-gnu-toolchain
-REPO_QEMU		?= $(REPO_RISCV)/riscv-qemu
+REPO_RISCV			?= https://github.com/riscv
+REPO_TOOLS			?= $(REPO_RISCV)/riscv-tools
+REPO_QEMU			?= $(REPO_RISCV)/riscv-qemu
 
-LOG_PATH		?= $(DIR_WORKING)/logs
-QEMU_BUILDLOG	?= $(LOG_PATH)/qemu-build.log
+BUSYBOX_VERSION		:= 1.25.1
+BUSYBOX_TARBALL		:= /pub/backup/busybox-$(BUSYBOX_VERSION).tar.bz2
+
+DIR_LINUX			:= $(DIR_WORKING)/linux-4.6.2
+
+DIR_PK				?= $(DIR_WORKING)/riscv-tools/riscv-pk
+
+LOG_PATH			:= $(DIR_RISCV)/logs
+QEMU_BUILDLOG		:= $(LOG_PATH)/qemu-build.log
+TOOLCHAIN_BUILDLOG	:= $(LOG_PATH)/toolchain-build.log
+BUSYBOX_BUILDLOG	:= $(LOG_PATH)/busybox-build.log
+LINUX_BUILDLOG		:= $(LOG_PATH)/linux-build.log
+BBL_BUILDLOG		:= $(LOG_PATH)/bbl-build.log
 
 all:
 	@echo ""
@@ -16,6 +29,8 @@ all:
 	@echo ""
 	@echo "make highfive"
 	@echo "     or: make clean"
+	@echo "     or: make qemu-new"
+	@echo "     or: make qemu-make"
 	@echo ""
 
 highfive:
@@ -24,33 +39,63 @@ highfive:
 clean:
 	@rm -fr $(DIR_WORKING) $(DIR_INSTALL)
 
-toolchain-new:
+tools-new:
 	@echo "rm old repo..."
-	@rm -rf $(DIR_WORKING)/riscv-gnu-toolchain 
+	@rm -rf $(DIR_WORKING)/riscv-tools
 	@echo "clone new repo"
-	@cd $(DIR_WORKING);								\
-		 git clone --recursive $(REPO_GNU);			\
-		 cd -
-	@echo ""
+	@cd $(DIR_WORKING);												\
+		git clone $(REPO_TOOLS)
+	@echo "create qemu branch"
+	@cd $(DIR_WORKING)/riscv-tools;									\
+		git branch qemu 745e74afb56ecba090669615d4ac9c9b9b96c653
+	@cd $(DIR_WORKING)/riscv-tools;									\
+		git checkout qemu
+	@echo "update submodule"
+	@cd $(DIR_WORKING)/riscv-tools;									\
+		git submodule update --init --recursive
 
 toolchain-make:
+	@rm -rf $(DIR_INSTALL)/riscv-gnu-toolchain
+	@make -C $(DIR_WORKING)/riscv-tools/riscv-gnu-toolchain			\
+		clean
+	@test -d $(LOG_PATH) ||											\
+		mkdir -p $(LOG_PATH)
 	@echo "do configure..."
-	@cd $(DIR_WORKING);								\
-		./configure 								\
-		--prefix=$(DIR_INSTALL)/riscv-gnu-toolchain	\
-		--enable-multilib
+	@cd $(DIR_WORKING)/riscv-tools/riscv-gnu-toolchain;				\
+		./configure 												\
+		CFLAGS=-msoft-float											\
+		LDFLAGS=-msoft-float										\
+		CPPFLAGS=-msoft-float										\
+		--prefix=$(DIR_INSTALL)/riscv-gnu-toolchain					\
+		--enable-multilib											\
+		--disable-float												\
+		--disable-atomic											\
+		> $(TOOLCHAIN_BUILDLOG) 2>&1
+	@echo "make and make install..."
+	@make -C $(DIR_WORKING)/riscv-tools/riscv-gnu-toolchain			\
+		linux														\
+		>> $(TOOLCHAIN_BUILDLOG) 2>&1
 
 busybox:
+	@test -d $(LOG_PATH) ||											\
+		mkdir -p $(LOG_PATH)
 	@echo "Remove old busybox ..."
 	@test -d $(DIR_WORKING) || mkdir -p $(DIR_WORKING)
 	@rm -fr $(DIR_WORKING)/busybox*
-	@cd $(DIR_WORKING);					\
-		tar xfj $(BUSYBOX_TARBALL);			\
-		ln -sf busybox-1.21.1 busybox
+	@cd $(DIR_WORKING);												\
+		tar xmfj $(BUSYBOX_TARBALL);								\
+		ln -sf busybox-$(BUSYBOX_VERSION) busybox
 	@echo "Configure and make busybox ..."
-	@cp $(BUSYBOX_CONFIG) $(DIR_WORKING)/busybox/.config
+	@echo "CONFIG_STATIC=n"											\
+		> $(DIR_WORKING)/busybox/.config
+	@echo "CONFIG_CROSS_COMPILER_PREFIX=\"$(DIR_INSTALL)/riscv-gnu-toolchain/bin/riscv64-unknown-linux-gnu-\"" \
+		>> $(DIR_WORKING)/busybox/.config
+	@echo "CONFIG_SYSROOT=\"$(DIR_INSTALL)/riscv-gnu-toolchain/sysroot\""	\
+		>> $(DIR_WORKING)/busybox/.config
+	#@echo "CONFIG_EXTRA_CFLAGS=\"-mno-float\""					\
+		>> $(DIR_WORKING)/busybox/.config
 	@yes "" | make -C $(DIR_WORKING)/busybox oldconfig	\
-		>> $(BUSYBOX_BUILDLOG) 2>&1
+		> $(BUSYBOX_BUILDLOG) 2>&1
 	@make -C $(DIR_WORKING)/busybox -j4			\
 		>> $(BUSYBOX_BUILDLOG) 2>&1
 	@make -C $(DIR_WORKING)/busybox install			\
@@ -59,35 +104,51 @@ busybox:
 linux-new:
 	@echo "Remove old linux repo ..."
 	@test -d $(DIR_WORKING) || mkdir -p $(DIR_WORKING)
-	@rm -fr $(DIR_WORKING)/linux
-	@echo "Clone and checkout RISCV branch"
-	@cd $(DIR_WORKING);					\
-		git clone $(LINUX_GITREPO) -- linux
-	@cd $(DIR_WORKING)/linux;				\
-		git checkout -b RISCV $(LINUX_VERSION)
-	@cd $(DIR_WORKING)/linux;				\
-		cp -a $(LINUX_307)/arch/* arch ;		\
-		cp -a $(LINUX_307)/Documentation/DocBook/* Documentation/DocBook ;	\
-		git add . ;					\
-		git commit -asm "RISCV: Add arch/RISCV support" ; \
-		git am $(LINUX_307)/patches-fixup/*
+	@rm -fr $(DIR_LINUX)
 
 linux-make:
+	@test -d $(LOG_PATH) ||							\
+		mkdir -p $(LOG_PATH)
 	@echo "Make mrproper ..."
-	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
-		mrproper >> $(LINUX_BUILDLOG) 2>&1
-	@echo "Make $(LINUX_DEFCONFIG) ..."
-	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
-		$(LINUX_DEFCONFIG) >> $(LINUX_BUILDLOG) 2>&1
+	@make -C $(DIR_LINUX) ARCH=riscv				\
+		mrproper > $(LINUX_BUILDLOG) 2>&1
+	@echo "Make config ..."
+	@echo "CONFIG_CROSS_COMPILE=\"$(DIR_INSTALL)/riscv-gnu-toolchain/bin/riscv64-unknown-linux-gnu-\""		\
+		> $(DIR_LINUX)/.config
+	@echo "CONFIG_BLK_DEV_INITRD=y"					\
+		>> $(DIR_LINUX)/.config
+	@echo "CONFIG_INITRAMFS_SOURCE=\"$(DIR_RISCV)/initramfs/initramfs.src\""			\
+		>> $(DIR_LINUX)/.config
+	@echo "CONFIG_VGA_CONSOLE=n"					\
+		>> $(DIR_LINUX)/.config
+	@make -C $(DIR_LINUX) ARCH=riscv				\
+		olddefconfig >> $(LINUX_BUILDLOG) 2>&1
 	@echo "Making (in several minutes) ..."
-	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH) -j4	\
+	@make -C $(DIR_LINUX) ARCH=riscv -j4			\
 		>> $(LINUX_BUILDLOG) 2>&1
-	@echo "Softlinking necessary files ..."
-	@ln -sf $(DIR_WORKING)/linux/arch/RISCV/boot/zImage $(DIR_WORKING)
-	@ln -sf $(DIR_WORKING)/linux/System.map $(DIR_WORKING)
-	@echo "Generating disassembly file for vmlinux ..."
-	@$(OBJDUMP) -D $(DIR_WORKING)/linux/vmlinux		\
-		> $(DIR_WORKING)/vmlinux.disasm
+
+bbl-make:
+	@rm -rf $(BBL_BUILDLOG)
+	@test -d $(LOG_PATH) ||							\
+		mkdir -p $(LOG_PATH)
+	@echo "Make clean ..."
+#@test -d $(DIR_PK)/build &&						\
+		make -C $(DIR_PK)/build clean				\
+		> $(BBL_BUILDLOG) 2>&1
+	@rm -rf $(DIR_PK)/build
+	@echo "config..."
+	@mkdir -p $(DIR_PK)/build
+	@cd $(DIR_PK)/build;							\
+		../configure								\
+		--prefix=$(DIR_INSTALL)/riscv-pk			\
+		--host=riscv64-unknown-linux-gnu			\
+		--with-payload=$(DIR_LINUX)/vmlinux			\
+		>> $(BBL_BUILDLOG) 2>&1
+	@echo "make..."
+	@make -C $(DIR_PK)/build						\
+		>> $(BBL_BUILDLOG) 2>&1
+	@make -C $(DIR_PK)/build install				\
+		>> $(BBL_BUILDLOG) 2>&1
 
 qemu-new:
 	@test -d $(DIR_WORKING) ||						\
@@ -96,12 +157,10 @@ qemu-new:
 	@rm -fr $(DIR_WORKING)/riscv-qemu
 	@echo "Clone new qemu repo ..."
 	@cd $(DIR_WORKING); 							\
-		git clone $(REPO_QEMU);						\
-		cd -
+		git clone $(REPO_QEMU)
 	@echo "update submodule pixman"
 	@cd $(DIR_WORKING)/riscv-qemu;					\
-    	git submodule update --init pixman;			\
-		cd -
+    	git submodule update --init pixman
 
 qemu-make:
 	@test -d $(LOG_PATH) ||							\
@@ -110,24 +169,17 @@ qemu-make:
 	@cd $(DIR_WORKING)/riscv-qemu; ./configure						\
 		--target-list=riscv64-softmmu,riscv64-linux-user			\
 		--prefix=$(DIR_INSTALL)/riscv-qemu							\
-		> $(QEMU_BUILDLOG) 2>&1;									\
-		cd -
+		> $(QEMU_BUILDLOG) 2>&1
 	@echo "Make qemu and make install ..."
 	@make -C $(DIR_WORKING)/riscv-qemu -j4 >> $(QEMU_BUILDLOG) 2>&1
 	@make -C $(DIR_WORKING)/riscv-qemu install >> $(QEMU_BUILDLOG) 2>&1
 
 qemu-run:
-	@echo "Remove old log file"
-	@rm -fr $(QEMU_TRACELOG)
-	@echo "Running QEMU in this tty ..."
-	@$(DIR_WORKING)/qemu-RISCV/bin/qemu-system-RISCV\
-		-curses						\
-		--cpu=RISCV						\
-		-M puv4						\
-		-m 512						\
-		-smp $(QEMU_SMP)				\
-		-icount 0					\
-		-kernel $(DIR_WORKING)/zImage			\
-		-append "root=/dev/ram"				\
-		2> $(QEMU_TRACELOG)
+	@$(DIR_INSTALL)/riscv-qemu/bin/qemu-system-riscv64				\
+		-nographic													\
+		-kernel $(DIR_INSTALL)/riscv-pk/riscv64-unknown-elf/bin/bbl
 
+qemu-ucb:
+	@$(DIR_INSTALL)/riscv-qemu/bin/qemu-system-riscv64				\
+		-nographic													\
+		-kernel $(DIR_RISCV)/ucb/bblvmlinuxinitramfs_dynamic_1.9.1
