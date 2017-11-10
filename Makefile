@@ -132,13 +132,12 @@ linux-make:
 		>> $(LINUX_BUILDLOG) 2>&1
 
 bbl-make:
+	@echo "clean old build ..."
+	@rm -rf $(DIR_INSTALL)/riscv-pk
 	@rm -rf $(BBL_BUILDLOG)
 	@test -d $(LOG_PATH) ||							\
 		mkdir -p $(LOG_PATH)
 	@echo "Make clean ..."
-#@test -d $(DIR_PK)/build &&						\
-		make -C $(DIR_PK)/build clean				\
-		> $(BBL_BUILDLOG) 2>&1
 	@rm -rf $(DIR_PK)/build
 	@echo "config..."
 	@mkdir -p $(DIR_PK)/build
