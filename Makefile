@@ -83,13 +83,11 @@ busybox:
 		tar xmfj $(BUSYBOX_TARBALL);								\
 		ln -sf busybox-$(BUSYBOX_VERSION) busybox
 	@echo "Configure and make busybox ..."
-	@echo "CONFIG_STATIC=n"											\
+	@echo "CONFIG_STATIC=y"											\
 		> $(DIR_WORKING)/busybox/.config
 	@echo "CONFIG_CROSS_COMPILER_PREFIX=\"$(DIR_INSTALL)/riscv-gnu-toolchain/bin/riscv64-unknown-linux-gnu-\"" \
 		>> $(DIR_WORKING)/busybox/.config
 	@echo "CONFIG_SYSROOT=\"$(DIR_INSTALL)/riscv-gnu-toolchain/sysroot\""	\
-		>> $(DIR_WORKING)/busybox/.config
-	#@echo "CONFIG_EXTRA_CFLAGS=\"-mno-float\""					\
 		>> $(DIR_WORKING)/busybox/.config
 	@yes "" | make -C $(DIR_WORKING)/busybox oldconfig	\
 		> $(BUSYBOX_BUILDLOG) 2>&1
