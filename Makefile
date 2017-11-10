@@ -168,6 +168,7 @@ qemu-new:
 qemu-make:
 	@test -d $(LOG_PATH) ||							\
 		mkdir -p $(LOG_PATH)
+	@rm -rf $(DIR_INSTALL)/riscv-qemu
 	@echo "Configure qemu ..."
 	@cd $(DIR_WORKING)/riscv-qemu; ./configure						\
 		--target-list=riscv64-softmmu,riscv64-linux-user			\
