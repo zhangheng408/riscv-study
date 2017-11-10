@@ -66,13 +66,7 @@ toolchain-make:
 	@echo "do configure..."
 	@cd $(DIR_WORKING)/riscv-tools/riscv-gnu-toolchain;				\
 		./configure 												\
-		CFLAGS=-msoft-float											\
-		LDFLAGS=-msoft-float										\
-		CPPFLAGS=-msoft-float										\
 		--prefix=$(DIR_INSTALL)/riscv-gnu-toolchain					\
-		--enable-multilib											\
-		--disable-float												\
-		--disable-atomic											\
 		> $(TOOLCHAIN_BUILDLOG) 2>&1
 	@echo "make and make install..."
 	@make -C $(DIR_WORKING)/riscv-tools/riscv-gnu-toolchain			\
