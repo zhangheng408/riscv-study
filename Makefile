@@ -12,7 +12,10 @@ REPO_QEMU			?= $(REPO_RISCV)/riscv-qemu
 BUSYBOX_VERSION		:= 1.25.1
 BUSYBOX_TARBALL		:= /pub/backup/busybox-$(BUSYBOX_VERSION).tar.bz2
 
-DIR_LINUX			:= $(DIR_WORKING)/linux-4.6.2
+LINUX_VERSION		:= 4.6.2
+DIR_LINUX			:= $(DIR_WORKING)/linux-$(LINUX_VERSION)
+LINUX_TARBALL		:= /pub/backup/linux-$(LINUX_VERSION).tar.xz
+LINUX_REPO			:= /pub/git/riscv-linux.git
 
 DIR_PK				?= $(DIR_WORKING)/riscv-tools/riscv-pk
 
@@ -105,6 +108,15 @@ linux-new:
 	@echo "Remove old linux repo ..."
 	@test -d $(DIR_WORKING) || mkdir -p $(DIR_WORKING)
 	@rm -fr $(DIR_LINUX)
+	@echo "untar linux tarball ..."
+	@cd $(DIR_WORKING);												\
+		tar xmJf $(LINUX_TARBALL)
+	@echo "add git repo ..."
+	@cd $(DIR_LINUX);												\
+		git init;													\
+		git remote add origin $(LINUX_REPO);						\
+		rm -rf .gitignore arch/.gitignore;							\
+		git pull -f origin priv-1.9:master
 
 linux-make:
 	@test -d $(LOG_PATH) ||							\
