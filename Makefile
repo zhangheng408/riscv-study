@@ -2,8 +2,8 @@ DIR_RISCV			:= $(wildcard ~/riscv)
 DIR_WORKING			:= $(DIR_RISCV)/working
 DIR_INSTALL			:= $(DIR_RISCV)/install
 
-RISCV				:= $(DIR_INSTALL)/riscv-gnu-toolchain
-PATH				:= $(RISCV)/bin:$(PATH)
+TOOLCHAIN			?= $(DIR_INSTALL)/riscv-gnu-toolchain
+PATH				:= $(TOOLCHAIN)/bin:$(PATH)
 
 REPO_RISCV			?= https://github.com/riscv
 REPO_TOOLS			?= $(REPO_RISCV)/riscv-tools
@@ -117,7 +117,7 @@ linux-make:
 	@make -C $(DIR_LINUX) ARCH=riscv				\
 		mrproper > $(LINUX_BUILDLOG) 2>&1
 	@echo "Make config ..."
-	@echo "CONFIG_CROSS_COMPILE=\"$(DIR_INSTALL)/riscv-gnu-toolchain/bin/riscv64-unknown-linux-gnu-\""		\
+	@echo "CONFIG_CROSS_COMPILE=\"riscv64-unknown-linux-gnu-\""		\
 		> $(DIR_LINUX)/.config
 	@echo "CONFIG_BLK_DEV_INITRD=y"					\
 		>> $(DIR_LINUX)/.config
