@@ -117,14 +117,8 @@ linux-make:
 	@make -C $(DIR_LINUX) ARCH=riscv				\
 		mrproper > $(LINUX_BUILDLOG) 2>&1
 	@echo "Make config ..."
-	@echo "CONFIG_CROSS_COMPILE=\"riscv64-unknown-linux-gnu-\""		\
-		> $(DIR_LINUX)/.config
-	@echo "CONFIG_BLK_DEV_INITRD=y"					\
-		>> $(DIR_LINUX)/.config
-	@echo "CONFIG_INITRAMFS_SOURCE=\"$(DIR_RISCV)/initramfs/initramfs.src\""			\
-		>> $(DIR_LINUX)/.config
-	@echo "CONFIG_VGA_CONSOLE=n"					\
-		>> $(DIR_LINUX)/.config
+	@cp $(DIR_RISCV)/riscv_linux_config 			\
+		$(DIR_LINUX)/.config
 	@make -C $(DIR_LINUX) ARCH=riscv				\
 		olddefconfig >> $(LINUX_BUILDLOG) 2>&1
 	@echo "Making (in several minutes) ..."
