@@ -188,7 +188,7 @@ qemu-ucb:
 
 fesvr-make:
 	@echo "remove old build..."
-	@test -d $(LOG_PATH) ||							\
+	@test -d $(LOG_PATH) ||											\
 		mkdir -p $(LOG_PATH)
 	@rm -rf $(DIR_INSTALL)/riscv-fesvr
 	@echo "config..."
@@ -199,3 +199,20 @@ fesvr-make:
 	@echo "make install..."
 	@make -C $(DIR_FESVR)/build install 							\
 		>> $(FESVR_BUILDLOG) 2>&1
+
+isa-sim-make:
+	@echo "remove old build..."
+	@test -d $(LOG_PATH) ||											\
+		mkdir -p $(LOG_PATH)
+	@rm -rf $(DIR_INSTALL)/riscv-isa-sim
+	@echo "config..."
+	@mkdir -p $(DIR_ISA_SIM)/build
+	@cd $(DIR_ISA_SIM)/build;										\
+		../configure --prefix=$(DIR_INSTALL)/riscv-isa-sim			\
+		--with-fesvr=$(DIR_INSTALL)/riscv-fesvr						\
+		> $(ISA_SIM_BUILDLOG) 2>&1
+	@echo "make install..."
+	@make -C $(DIR_ISA_SIM)/build 									\
+		>> $(ISA_SIM_BUILDLOG) 2>&1
+	@make -C $(DIR_ISA_SIM)/build install 							\
+		>> $(ISA_SIM_BUILDLOG) 2>&1
