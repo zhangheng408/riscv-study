@@ -13,11 +13,13 @@ BUSYBOX_VERSION		:= 1.25.1
 BUSYBOX_TARBALL		:= /pub/backup/busybox-$(BUSYBOX_VERSION).tar.bz2
 
 LINUX_VERSION		:= 4.6.2
-DIR_LINUX			:= $(DIR_WORKING)/linux-$(LINUX_VERSION)
+DIR_LINUX			:= $(DIR_WORKING)/riscv-linux
 LINUX_TARBALL		:= /pub/backup/linux-$(LINUX_VERSION).tar.xz
 LINUX_REPO			:= /pub/git/riscv-linux.git
 
 DIR_PK				?= $(DIR_WORKING)/riscv-tools/riscv-pk
+DIR_FESVR			?= $(DIR_WORKING)/riscv-tools/riscv-fesvr
+DIR_ISA_SIM			?= $(DIR_WORKING)/riscv-tools/riscv-isa-sim
 
 LOG_PATH			:= $(DIR_RISCV)/logs
 QEMU_BUILDLOG		:= $(LOG_PATH)/qemu-build.log
@@ -25,6 +27,8 @@ TOOLCHAIN_BUILDLOG	:= $(LOG_PATH)/toolchain-build.log
 BUSYBOX_BUILDLOG	:= $(LOG_PATH)/busybox-build.log
 LINUX_BUILDLOG		:= $(LOG_PATH)/linux-build.log
 BBL_BUILDLOG		:= $(LOG_PATH)/bbl-build.log
+FESVR_BUILDLOG		:= $(LOG_PATH)/fesvr-build.log
+ISA_SIM_BUILDLOG	:= $(LOG_PATH)/isa-sim-build.log
 
 all:
 	@echo ""
@@ -181,3 +185,17 @@ qemu-ucb:
 	@$(DIR_INSTALL)/riscv-qemu/bin/qemu-system-riscv64				\
 		-nographic													\
 		-kernel $(DIR_RISCV)/ucb/bblvmlinuxinitramfs_dynamic_1.9.1
+
+fesvr-make:
+	@echo "remove old build..."
+	@test -d $(LOG_PATH) ||							\
+		mkdir -p $(LOG_PATH)
+	@rm -rf $(DIR_INSTALL)/riscv-fesvr
+	@echo "config..."
+	@mkdir -p $(DIR_FESVR)/build
+	@cd $(DIR_FESVR)/build;											\
+		../configure --prefix=$(DIR_INSTALL)/riscv-fesvr			\
+		> $(FESVR_BUILDLOG) 2>&1
+	@echo "make install..."
+	@make -C $(DIR_FESVR)/build install 							\
+		>> $(FESVR_BUILDLOG) 2>&1
