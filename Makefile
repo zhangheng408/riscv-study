@@ -26,7 +26,7 @@ QEMU_BUILDLOG		:= $(LOG_PATH)/qemu-build.log
 TOOLCHAIN_BUILDLOG	:= $(LOG_PATH)/toolchain-build.log
 BUSYBOX_BUILDLOG	:= $(LOG_PATH)/busybox-build.log
 LINUX_BUILDLOG		:= $(LOG_PATH)/linux-build.log
-BBL_BUILDLOG		:= $(LOG_PATH)/bbl-build.log
+PK_BUILDLOG			:= $(LOG_PATH)/pk-build.log
 FESVR_BUILDLOG		:= $(LOG_PATH)/fesvr-build.log
 ISA_SIM_BUILDLOG	:= $(LOG_PATH)/isa-sim-build.log
 
@@ -129,27 +129,35 @@ linux-make:
 	@make -C $(DIR_LINUX) ARCH=riscv -j4			\
 		>> $(LINUX_BUILDLOG) 2>&1
 
-bbl-make:
+pk-make:
 	@echo "clean old build ..."
 	@rm -rf $(DIR_INSTALL)/riscv-pk
-	@rm -rf $(BBL_BUILDLOG)
+	@rm -rf $(PK_BUILDLOG)
 	@test -d $(LOG_PATH) ||							\
 		mkdir -p $(LOG_PATH)
 	@echo "Make clean ..."
 	@rm -rf $(DIR_PK)/build
 	@echo "config..."
 	@mkdir -p $(DIR_PK)/build
-	@cd $(DIR_PK)/build;							\
+	@if [ -f $(DIR_LINUX)/vmlinux ]; then			\
+		cd $(DIR_PK)/build;							\
 		../configure								\
 		--prefix=$(DIR_INSTALL)/riscv-pk			\
 		--host=riscv64-unknown-linux-gnu			\
 		--with-payload=$(DIR_LINUX)/vmlinux			\
-		>> $(BBL_BUILDLOG) 2>&1
+		>> $(PK_BUILDLOG) 2>&1						\
+	;else											\
+		cd $(DIR_PK)/build;							\
+		../configure								\
+		--prefix=$(DIR_INSTALL)/riscv-pk			\
+		--host=riscv64-unknown-linux-gnu			\
+		>> $(PK_BUILDLOG) 2>&1						\
+	;fi
 	@echo "make..."
 	@make -C $(DIR_PK)/build						\
-		>> $(BBL_BUILDLOG) 2>&1
+		>> $(PK_BUILDLOG) 2>&1
 	@make -C $(DIR_PK)/build install				\
-		>> $(BBL_BUILDLOG) 2>&1
+		>> $(PK_BUILDLOG) 2>&1
 
 qemu-new:
 	@test -d $(DIR_WORKING) ||						\
