@@ -1,17 +1,5 @@
-#
-# inittab       This file describes how the INIT process should set up
-#               the system in a certain run-level.
-#
-
-# Start an "askfirst" shell on the console (whatever that may be)
-::askfirst:-/bin/sh
-# Start an "askfirst" shell on /dev/tty2-4
-#tty2::askfirst:-/bin/sh
-
-# Stuff to do when restarting the init process
-::restart:/sbin/init
-
-# Stuff to do before rebooting
-::ctrlaltdel:/sbin/reboot
-::shutdown:/bin/umount -a -r
-::shutdown:/sbin/swapoff -a
+::sysinit:/bin/busybox mount -t proc proc /proc
+::sysinit:/bin/busybox mount -t tmpfs tmpfs /tmp
+::sysinit:/bin/busybox mount -o remount,rw /dev/htifblk0 /
+::sysinit:/bin/busybox --install -s
+/dev/console::sysinit:-/bin/ash
