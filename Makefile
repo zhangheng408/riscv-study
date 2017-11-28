@@ -17,9 +17,12 @@ DIR_LINUX			:= $(DIR_WORKING)/riscv-linux
 LINUX_TARBALL		:= /pub/backup/linux-$(LINUX_VERSION).tar.xz
 LINUX_REPO			:= /pub/git/riscv-linux.git
 
-DIR_PK				?= $(DIR_WORKING)/riscv-tools/riscv-pk
-DIR_FESVR			?= $(DIR_WORKING)/riscv-tools/riscv-fesvr
-DIR_ISA_SIM			?= $(DIR_WORKING)/riscv-tools/riscv-isa-sim
+DIR_TOOLS			?= $(DIR_WORKING)/riscv-tools
+DIR_TOOLCHAIN		?= $(DIR_TOOLS)/riscv-gnu-toolchain
+DIR_QEMU			?= $(DIR_TOOLCHAIN)/riscv-qemu
+DIR_PK				?= $(DIR_TOOLS)/riscv-pk
+DIR_FESVR			?= $(DIR_TOOLS)/riscv-fesvr
+DIR_ISA_SIM			?= $(DIR_TOOLS)/riscv-isa-sim
 
 LOG_PATH			:= $(DIR_RISCV)/logs
 QEMU_BUILDLOG		:= $(LOG_PATH)/qemu-build.log
