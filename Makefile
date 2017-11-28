@@ -162,30 +162,19 @@ pk-make:
 	@make -C $(DIR_PK)/build install				\
 		>> $(PK_BUILDLOG) 2>&1
 
-qemu-new:
-	@test -d $(DIR_WORKING) ||						\
-		mkdir -p $(DIR_WORKING)
-	@echo "Remove old qemu repo ..."
-	@rm -fr $(DIR_WORKING)/riscv-qemu
-	@echo "Clone new qemu repo ..."
-	@cd $(DIR_WORKING); 							\
-		git clone $(REPO_QEMU)
-	@echo "update submodule pixman"
-	@cd $(DIR_WORKING)/riscv-qemu;					\
-    	git submodule update --init pixman
-
 qemu-make:
 	@test -d $(LOG_PATH) ||							\
 		mkdir -p $(LOG_PATH)
 	@rm -rf $(DIR_INSTALL)/riscv-qemu
 	@echo "Configure qemu ..."
-	@cd $(DIR_WORKING)/riscv-qemu; ./configure						\
+	@cd $(DIR_QEMU); 												\
+		./configure													\
 		--target-list=riscv64-softmmu,riscv64-linux-user			\
 		--prefix=$(DIR_INSTALL)/riscv-qemu							\
 		> $(QEMU_BUILDLOG) 2>&1
 	@echo "Make qemu and make install ..."
-	@make -C $(DIR_WORKING)/riscv-qemu -j4 >> $(QEMU_BUILDLOG) 2>&1
-	@make -C $(DIR_WORKING)/riscv-qemu install >> $(QEMU_BUILDLOG) 2>&1
+	@make -C $(DIR_QEMU) -j4 >> $(QEMU_BUILDLOG) 2>&1
+	@make -C $(DIR_QEMU) install >> $(QEMU_BUILDLOG) 2>&1
 
 qemu-run:
 	@$(DIR_INSTALL)/riscv-qemu/bin/qemu-system-riscv64				\
