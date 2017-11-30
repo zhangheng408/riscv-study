@@ -1,4 +1,4 @@
-DIR_RISCV			:= $(wildcard ~/riscv)
+DIR_RISCV			:= $(shell pwd)
 DIR_WORKING			:= $(DIR_RISCV)/working
 DIR_INSTALL			:= $(DIR_RISCV)/install
 
