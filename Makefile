@@ -65,19 +65,21 @@ tools-new:
 		git submodule update --init --recursive
 
 toolchain-make:
-	@rm -rf $(DIR_INSTALL)/riscv-gnu-toolchain
-	@make -C $(DIR_WORKING)/riscv-tools/riscv-gnu-toolchain			\
-		clean
+	@if [ -f $(DIR_INSTALL)/riscv-gnu-toolchain ]; then 			\
+		rm -rf $(DIR_INSTALL)/riscv-gnu-toolchain					\
+	;fi
+	@if [ -f $(DIR_TOOLCHAIN)/Makefile ]; then						\
+		make -C $(DIR_TOOLCHAIN) clean								\
+	;fi
 	@test -d $(LOG_PATH) ||											\
 		mkdir -p $(LOG_PATH)
 	@echo "do configure..."
-	@cd $(DIR_WORKING)/riscv-tools/riscv-gnu-toolchain;				\
+	@cd $(DIR_TOOLCHAIN);											\
 		./configure 												\
 		--prefix=$(DIR_INSTALL)/riscv-gnu-toolchain					\
 		> $(TOOLCHAIN_BUILDLOG) 2>&1
 	@echo "make and make install..."
-	@make -C $(DIR_WORKING)/riscv-tools/riscv-gnu-toolchain			\
-		linux														\
+	@make -C $(DIR_TOOLCHAIN) linux									\
 		>> $(TOOLCHAIN_BUILDLOG) 2>&1
 
 busybox:
