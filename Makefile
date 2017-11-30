@@ -65,10 +65,10 @@ tools-new:
 		git submodule update --init --recursive
 
 toolchain-make:
-	@if [ -f $(DIR_INSTALL)/riscv-gnu-toolchain ]; then 			\
+	@if [ -e $(DIR_INSTALL)/riscv-gnu-toolchain ]; then 			\
 		rm -rf $(DIR_INSTALL)/riscv-gnu-toolchain					\
 	;fi
-	@if [ -f $(DIR_TOOLCHAIN)/Makefile ]; then						\
+	@if [ -e $(DIR_TOOLCHAIN)/Makefile ]; then						\
 		make -C $(DIR_TOOLCHAIN) clean								\
 	;fi
 	@test -d $(LOG_PATH) ||											\
@@ -144,7 +144,7 @@ pk-make:
 	@rm -rf $(DIR_PK)/build
 	@echo "config..."
 	@mkdir -p $(DIR_PK)/build
-	@if [ -f $(DIR_LINUX)/vmlinux ]; then			\
+	@if [ -e $(DIR_LINUX)/vmlinux ]; then			\
 		cd $(DIR_PK)/build;							\
 		../configure								\
 		--prefix=$(DIR_INSTALL)/riscv-pk			\
