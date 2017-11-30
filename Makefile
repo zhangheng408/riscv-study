@@ -9,7 +9,7 @@ REPO_RISCV			?= https://github.com/riscv
 REPO_TOOLS			?= $(REPO_RISCV)/riscv-tools
 REPO_QEMU			?= $(REPO_RISCV)/riscv-qemu
 
-BUSYBOX_VERSION		:= 1.25.1
+BUSYBOX_VERSION		:= 1.26.2
 BUSYBOX_TARBALL		:= /pub/backup/busybox-$(BUSYBOX_VERSION).tar.bz2
 
 LINUX_VERSION		:= 4.6.2
