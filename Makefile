@@ -33,6 +33,8 @@ PK_BUILDLOG			:= $(LOG_PATH)/pk-build.log
 FESVR_BUILDLOG		:= $(LOG_PATH)/fesvr-build.log
 ISA_SIM_BUILDLOG	:= $(LOG_PATH)/isa-sim-build.log
 
+QEMU_MACHINE		?= spike_v1.10
+
 all:
 	@echo ""
 	@echo "Enjoy riscv!"
@@ -181,6 +183,7 @@ qemu-make:
 qemu-run:
 	@$(DIR_INSTALL)/riscv-qemu/bin/qemu-system-riscv64				\
 		-nographic													\
+		-machine $(QEMU_MACHINE)									\
 		-kernel $(DIR_INSTALL)/riscv-pk/riscv64-unknown-elf/bin/bbl
 
 qemu-ucb:
