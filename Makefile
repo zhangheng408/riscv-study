@@ -165,6 +165,10 @@ pk-make:
 		>> $(PK_BUILDLOG) 2>&1
 	@make -C $(DIR_PK)/build install				\
 		>> $(PK_BUILDLOG) 2>&1
+	@echo "dump bbl"
+	@riscv64-unknown-linux-gnu-objdump -D			\
+		$(DIR_INSTALL)/riscv-pk/riscv64-unknown-elf/bin/bbl	\
+		> $(LOG_PATH)/dump.bbl.log
 
 qemu-make:
 	@test -d $(LOG_PATH) ||							\
