@@ -135,6 +135,9 @@ linux-make:
 	@echo "Making (in several minutes) ..."
 	@make -C $(DIR_LINUX) ARCH=riscv -j4			\
 		>> $(LINUX_BUILDLOG) 2>&1
+	@riscv64-unknown-linux-gnu-objdump -D			\
+		$(DIR_LINUX)/vmlinux						\
+		> $(LOG_PATH)/dump.linux.log
 
 pk-make:
 	@echo "clean old build ..."
@@ -169,7 +172,7 @@ pk-make:
 		>> $(PK_BUILDLOG) 2>&1
 	@echo "dump bbl"
 	@riscv64-unknown-linux-gnu-objdump -D			\
-		$(DIR_INSTALL)/riscv-pk/riscv64-unknown-elf/bin/bbl	\
+		$(DIR_PK)/build/bbl							\
 		> $(LOG_PATH)/dump.bbl.log
 
 qemu-make:
