@@ -152,12 +152,14 @@ pk-make:
 		--prefix=$(DIR_INSTALL)/riscv-pk			\
 		--host=riscv64-unknown-linux-gnu			\
 		--with-payload=$(DIR_LINUX)/vmlinux			\
+		--enable-logo								\
 		>> $(PK_BUILDLOG) 2>&1						\
 	;else											\
 		cd $(DIR_PK)/build;							\
 		../configure								\
 		--prefix=$(DIR_INSTALL)/riscv-pk			\
 		--host=riscv64-unknown-linux-gnu			\
+		--enable-logo								\
 		>> $(PK_BUILDLOG) 2>&1						\
 	;fi
 	@echo "make..."
