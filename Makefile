@@ -94,7 +94,7 @@ busybox:
 	@echo "Configure and make busybox ..."
 	@echo "CONFIG_STATIC=y"											\
 		> $(DIR_WORKING)/busybox/.config
-	@echo "CONFIG_CROSS_COMPILER_PREFIX=\"$(DIR_INSTALL)/riscv-gnu-toolchain/bin/riscv64-unknown-linux-gnu-\"" \
+	@echo "CONFIG_CROSS_COMPILER_PREFIX=\"riscv64-unknown-linux-gnu-\"" \
 		>> $(DIR_WORKING)/busybox/.config
 	@echo "CONFIG_SYSROOT=\"$(DIR_INSTALL)/riscv-gnu-toolchain/sysroot\""	\
 		>> $(DIR_WORKING)/busybox/.config
