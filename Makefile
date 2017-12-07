@@ -135,6 +135,7 @@ linux-make:
 	@echo "Making (in several minutes) ..."
 	@make -C $(DIR_LINUX) ARCH=riscv -j4			\
 		>> $(LINUX_BUILDLOG) 2>&1
+	@echo "dump linux"
 	@riscv64-unknown-linux-gnu-objdump -D			\
 		$(DIR_LINUX)/vmlinux						\
 		> $(LOG_PATH)/dump.linux.log
