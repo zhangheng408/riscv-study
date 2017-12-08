@@ -52,19 +52,12 @@ clean:
 	@rm -fr $(DIR_WORKING) $(DIR_INSTALL)
 
 tools-new:
+	@test -d $(DIR_WORKING) || mkdir -p $(DIR_WORKING)
 	@echo "rm old repo..."
 	@rm -rf $(DIR_WORKING)/riscv-tools
 	@echo "clone new repo"
 	@cd $(DIR_WORKING);												\
-		git clone $(REPO_TOOLS)
-	@echo "create qemu branch"
-	@cd $(DIR_WORKING)/riscv-tools;									\
-		git branch qemu 745e74afb56ecba090669615d4ac9c9b9b96c653
-	@cd $(DIR_WORKING)/riscv-tools;									\
-		git checkout qemu
-	@echo "update submodule"
-	@cd $(DIR_WORKING)/riscv-tools;									\
-		git submodule update --init --recursive
+		git clone --recursive $(REPO_TOOLS)
 
 toolchain-make:
 	@if [ -e $(DIR_INSTALL)/riscv-gnu-toolchain ]; then 			\
