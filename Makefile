@@ -8,15 +8,12 @@ PATH				:= $(TOOLCHAIN)/bin:$(PATH)
 REPO_RISCV			?= https://github.com/riscv
 REPO_TOOLS			?= $(REPO_RISCV)/riscv-tools
 REPO_QEMU			?= $(REPO_RISCV)/riscv-qemu
+REPO_LINUX			?= $(REPO_RISCV)/riscv-linux
 
 BUSYBOX_VERSION		:= 1.26.2
 BUSYBOX_TARBALL		:= /pub/backup/busybox-$(BUSYBOX_VERSION).tar.bz2
 
-LINUX_VERSION		:= 4.6.2
 DIR_LINUX			?= $(DIR_WORKING)/riscv-linux
-LINUX_TARBALL		:= /pub/backup/linux-$(LINUX_VERSION).tar.xz
-LINUX_REPO			:= /pub/git/riscv-linux.git
-
 DIR_TOOLS			?= $(DIR_WORKING)/riscv-tools
 DIR_TOOLCHAIN		?= $(DIR_TOOLS)/riscv-gnu-toolchain
 DIR_QEMU			?= $(DIR_TOOLCHAIN)/riscv-qemu
@@ -101,18 +98,14 @@ busybox:
 		>> $(BUSYBOX_BUILDLOG) 2>&1
 
 linux-new:
-	@echo "Remove old linux repo ..."
 	@test -d $(DIR_WORKING) || mkdir -p $(DIR_WORKING)
+	@echo "Remove old linux repo ..."
 	@rm -fr $(DIR_LINUX)
-	@echo "untar linux tarball ..."
-	@cd $(DIR_WORKING);												\
-		tar xmJf $(LINUX_TARBALL)
-	@echo "add git repo ..."
-	@cd $(DIR_LINUX);												\
-		git init;													\
-		git remote add origin $(LINUX_REPO);						\
-		rm -rf .gitignore arch/.gitignore;							\
-		git pull -f origin priv-1.9:master
+	@echo "clone new repo ..."
+ 	@cd $(DIR_WORKING);												\
+		git clone $(REPO_LINUX)
+	@echo "make tags .."
+	@make -C $(DIR_LINUX) tags ARCH=riscv
 
 linux-make:
 	@test -d $(LOG_PATH) ||							\
