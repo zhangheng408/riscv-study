@@ -13,7 +13,7 @@ BUSYBOX_VERSION		:= 1.26.2
 BUSYBOX_TARBALL		:= /pub/backup/busybox-$(BUSYBOX_VERSION).tar.bz2
 
 LINUX_VERSION		:= 4.6.2
-DIR_LINUX			:= $(DIR_WORKING)/riscv-linux
+DIR_LINUX			?= $(DIR_WORKING)/riscv-linux
 LINUX_TARBALL		:= /pub/backup/linux-$(LINUX_VERSION).tar.xz
 LINUX_REPO			:= /pub/git/riscv-linux.git
 
@@ -124,9 +124,9 @@ linux-new:
 linux-make:
 	@test -d $(LOG_PATH) ||							\
 		mkdir -p $(LOG_PATH)
-	@echo "Make mrproper ..."
+	@echo "Make clean ..."
 	@make -C $(DIR_LINUX) ARCH=riscv				\
-		mrproper > $(LINUX_BUILDLOG) 2>&1
+		clean > $(LINUX_BUILDLOG) 2>&1
 	@echo "Make config ..."
 	@cp $(DIR_RISCV)/riscv_linux_config 			\
 		$(DIR_LINUX)/.config
