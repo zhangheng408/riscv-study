@@ -1,0 +1,49 @@
+diff --git a/roms/seabios b/roms/seabios
+--- a/roms/seabios
++++ b/roms/seabios
+@@ -1 +1 @@
+-Subproject commit e2fc41e24ee0ada60fc511d60b15a41b294538be
++Subproject commit e2fc41e24ee0ada60fc511d60b15a41b294538be-dirty
+diff --git a/roms/vgabios b/roms/vgabios
+--- a/roms/vgabios
++++ b/roms/vgabios
+@@ -1 +1 @@
+-Subproject commit 19ea12c230ded95928ecaef0db47a82231c2e485
++Subproject commit 19ea12c230ded95928ecaef0db47a82231c2e485-dirty
+diff --git a/vl.c b/vl.c
+index eafda8d..e773056 100644
+--- a/vl.c
++++ b/vl.c
+@@ -4214,6 +4214,8 @@ int main(int argc, char **argv, char **envp)
+ #endif
+     }
+ 
++    error_printf("ZH_DBG: nographic%x,default:parallel%x,serial%x,monitor%x,virtcon%x,sclp%x\n",
++            nographic, default_parallel, default_serial, default_monitor, default_virtcon, default_sclp);
+     if (nographic) {
+         if (default_parallel)
+             add_device_config(DEV_PARALLEL, "null");
+@@ -4577,6 +4579,7 @@ int main(int argc, char **argv, char **envp)
+ 
+     ds = init_displaystate();
+ 
++    error_printf("ZH_DBG: display_type %x\n", display_type);
+     /* init local displays */
+     switch (display_type) {
+     case DT_CURSES:
+@@ -4604,6 +4607,7 @@ int main(int argc, char **argv, char **envp)
+                       vnc_init_func, NULL, NULL);
+ #endif
+ 
++    error_printf("ZH_DBG: using_spice %x\n", using_spice);
+     if (using_spice) {
+         qemu_spice_display_init();
+     }
+@@ -4624,6 +4628,7 @@ int main(int argc, char **argv, char **envp)
+         exit(1);
+     }
+ 
++    error_printf("ZH_DBG: replay_mode %x\n", replay_mode);
+     replay_start();
+ 
+     /* This checkpoint is required by replay to separate prior clock

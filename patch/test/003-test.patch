@@ -1,0 +1,200 @@
+diff --git a/exec.c b/exec.c
+index c81d5ab..21add2a 100644
+--- a/exec.c
++++ b/exec.c
+@@ -642,6 +642,7 @@ void cpu_exec_init(CPUState *cpu, Error **errp)
+     CPUClass *cc ATTRIBUTE_UNUSED = CPU_GET_CLASS(cpu);
+     Error *local_err ATTRIBUTE_UNUSED = NULL;
+ 
++    error_printf("%s: %d\n", __func__, __LINE__);
+     cpu->as = NULL;
+     cpu->num_ases = 0;
+ 
+diff --git a/hw/riscv/htif/htif.c b/hw/riscv/htif/htif.c
+index 9be5f02..e0eedef 100644
+--- a/hw/riscv/htif/htif.c
++++ b/hw/riscv/htif/htif.c
+@@ -393,6 +393,8 @@ HTIFState *htif_mm_init(MemoryRegion *address_space,
+ #endif
+         }
+     }
++    error_printf("ZH_DBG: fromhost addr%lx,size%lx, tohost addr%lx,size%lx\n",
++            fromhost_addr, fromhost_size, tohost_addr, tohost_size);
+ 
+     /* now setup HTIF device */
+     HTIFState *htifstate;
+diff --git a/hw/riscv/spike_v1_10.c b/hw/riscv/spike_v1_10.c
+index 31eb96c..7c9effc 100644
+--- a/hw/riscv/spike_v1_10.c
++++ b/hw/riscv/spike_v1_10.c
+@@ -75,12 +75,16 @@ static uint64_t load_kernel(const char *kernel_filename)
+ {
+     uint64_t kernel_entry, kernel_high;
+ 
++    error_printf("ZH_DBG: before load kernel, entry %lx, high addr %lx\n",
++            kernel_entry, kernel_high);
+     if (load_elf(kernel_filename, identity_translate, NULL,
+                  &kernel_entry, NULL, &kernel_high,
+                  /* little_endian = */ 0, ELF_MACHINE, 1, 0) < 0) {
+         error_report("qemu: could not load kernel '%s'\n", kernel_filename);
+         exit(1);
+     }
++    error_printf("ZH_DBG: after load kernel, entry %lx, high addr %lx\n",
++            kernel_entry, kernel_high);
+     return kernel_entry;
+ }
+ 
+@@ -185,6 +189,9 @@ static void riscv_spike_board_init(MachineState *machine)
+     /* create device tree */
+     create_fdt(s, DRAM_BASE, machine->ram_size);
+ 
++    error_printf("ZH_DBG: smp cpus %x, harts %x, ram size %lx\n",
++            smp_cpus, s->soc.num_harts, machine->ram_size);
++
+     /* boot rom */
+     memory_region_init_ram(boot_rom, NULL, "riscv_spike_board.bootrom",
+                            s->fdt_size + 0x2000, &error_fatal);
+diff --git a/roms/seabios b/roms/seabios
+--- a/roms/seabios
++++ b/roms/seabios
+@@ -1 +1 @@
+-Subproject commit e2fc41e24ee0ada60fc511d60b15a41b294538be
++Subproject commit e2fc41e24ee0ada60fc511d60b15a41b294538be-dirty
+diff --git a/roms/vgabios b/roms/vgabios
+--- a/roms/vgabios
++++ b/roms/vgabios
+@@ -1 +1 @@
+-Subproject commit 19ea12c230ded95928ecaef0db47a82231c2e485
++Subproject commit 19ea12c230ded95928ecaef0db47a82231c2e485-dirty
+diff --git a/target-riscv/cpu.c b/target-riscv/cpu.c
+index f8bb2eb..40717ef 100644
+--- a/target-riscv/cpu.c
++++ b/target-riscv/cpu.c
+@@ -78,6 +78,7 @@ static inline void set_feature(CPURISCVState *env, int feature)
+ 
+ static void riscv_cpu_set_pc(CPUState *cs, vaddr value)
+ {
++    error_printf("%s: %d\n", __func__, __LINE__);
+     RISCVCPU *cpu = RISCV_CPU(cs);
+     CPURISCVState *env = &cpu->env;
+     env->pc = value;
+@@ -85,6 +86,7 @@ static void riscv_cpu_set_pc(CPUState *cs, vaddr value)
+ 
+ static void riscv_cpu_synchronize_from_tb(CPUState *cs, TranslationBlock *tb)
+ {
++    error_printf("%s: %d\n", __func__, __LINE__);
+     RISCVCPU *cpu = RISCV_CPU(cs);
+     CPURISCVState *env = &cpu->env;
+     env->pc = tb->pc;
+@@ -102,6 +104,7 @@ static bool riscv_cpu_has_work(CPUState *cs)
+     CPURISCVState *env = &cpu->env;
+     bool has_work = false;
+ 
++    error_printf("%s: %d\n", __func__, __LINE__);
+     if (cs->interrupt_request & CPU_INTERRUPT_HARD) {
+         int interruptno = cpu_riscv_hw_interrupts_pending(env);
+         if (interruptno + 1) {
+@@ -126,6 +129,7 @@ static void riscv_cpu_reset(CPUState *s)
+     CPURISCVState *env = &cpu->env;
+     CPUState *cs = CPU(cpu);
+ 
++    error_printf("%s: %d\n", __func__, __LINE__);
+     mcc->parent_reset(s);
+ #ifndef CONFIG_USER_ONLY
+     tlb_flush(s, 1);
+@@ -137,6 +141,7 @@ static void riscv_cpu_reset(CPUState *s)
+ }
+ 
+ static void riscv_cpu_disas_set_info(CPUState *s, disassemble_info *info) {
++    error_printf("%s: %d\n", __func__, __LINE__);
+     info->print_insn = print_insn_riscv;
+ }
+ 
+@@ -166,6 +171,7 @@ static void riscv_cpu_init(Object *obj)
+     RISCVCPU *cpu = RISCV_CPU(obj);
+     CPURISCVState *env = &cpu->env;
+ 
++    error_printf("%s: %d\n", __func__, __LINE__);
+     cs->env_ptr = env;
+     cpu_exec_init(cs, &error_abort);
+ 
+@@ -185,6 +191,7 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
+     CPUClass *cc = CPU_CLASS(c);
+     DeviceClass *dc = DEVICE_CLASS(c);
+ 
++    error_printf("%s: %d\n", __func__, __LINE__);
+     mcc->parent_realize = dc->realize;
+     dc->realize = riscv_cpu_realize;
+ 
+@@ -277,6 +284,7 @@ RISCVCPU *cpu_riscv_init(const char *cpu_model)
+     RISCVCPU *cpu = RISCV_CPU(object_new(TYPE_RISCV_CPU));
+     CPURISCVState *env = &cpu->env;
+ 
++    error_printf("%s: %d\n", __func__, __LINE__);
+     env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC;
+     env->user_ver = USER_VERSION_2_02_0;
+     env->priv_ver = PRIV_VERSION_1_09_1;
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index ba8e252..738def9 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -31,11 +31,15 @@
+ 
+ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+ {
++    error_printf("%s/%d: int req 0x%x\n",
++            __func__, __LINE__, interrupt_request);
+ #if !defined(CONFIG_USER_ONLY)
+     if (interrupt_request & CPU_INTERRUPT_HARD) {
+         RISCVCPU *cpu = RISCV_CPU(cs);
+         CPURISCVState *env = &cpu->env;
+         int interruptno = cpu_riscv_hw_interrupts_pending(env);
++        error_printf("%s/%d: int no 0x%x, pc 0x%lx, mip 0x%lx, mie 0x%lx, mideleg 0x%lx, medeleg 0x%lx\n",
++                __func__, __LINE__, interruptno, env->pc, env->mip, env->mie, env->mideleg, env->medeleg);
+         if (interruptno + 1) {
+             cs->exception_index = 0x70000000U | interruptno;
+             riscv_cpu_do_interrupt(cs);
+@@ -495,5 +499,6 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+     }
+     /* TODO yield load reservation  */
+ #endif
++    error_printf("%s: %d\n", __func__, __LINE__);
+     cs->exception_index = EXCP_NONE; /* mark handled to qemu */
+ }
+diff --git a/vl.c b/vl.c
+index eafda8d..e773056 100644
+--- a/vl.c
++++ b/vl.c
+@@ -4214,6 +4214,8 @@ int main(int argc, char **argv, char **envp)
+ #endif
+     }
+ 
++    error_printf("ZH_DBG: nographic%x,default:parallel%x,serial%x,monitor%x,virtcon%x,sclp%x\n",
++            nographic, default_parallel, default_serial, default_monitor, default_virtcon, default_sclp);
+     if (nographic) {
+         if (default_parallel)
+             add_device_config(DEV_PARALLEL, "null");
+@@ -4577,6 +4579,7 @@ int main(int argc, char **argv, char **envp)
+ 
+     ds = init_displaystate();
+ 
++    error_printf("ZH_DBG: display_type %x\n", display_type);
+     /* init local displays */
+     switch (display_type) {
+     case DT_CURSES:
+@@ -4604,6 +4607,7 @@ int main(int argc, char **argv, char **envp)
+                       vnc_init_func, NULL, NULL);
+ #endif
+ 
++    error_printf("ZH_DBG: using_spice %x\n", using_spice);
+     if (using_spice) {
+         qemu_spice_display_init();
+     }
+@@ -4624,6 +4628,7 @@ int main(int argc, char **argv, char **envp)
+         exit(1);
+     }
+ 
++    error_printf("ZH_DBG: replay_mode %x\n", replay_mode);
+     replay_start();
+ 
+     /* This checkpoint is required by replay to separate prior clock
