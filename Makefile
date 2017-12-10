@@ -102,7 +102,7 @@ linux-new:
 	@echo "Remove old linux repo ..."
 	@rm -fr $(DIR_LINUX)
 	@echo "clone new repo ..."
- 	@cd $(DIR_WORKING);												\
+	@cd $(DIR_WORKING);												\
 		git clone $(REPO_LINUX)
 	@echo "make tags .."
 	@make -C $(DIR_LINUX) tags ARCH=riscv
