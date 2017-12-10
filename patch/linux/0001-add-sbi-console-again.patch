@@ -1,6 +1,6 @@
-From 0d8db00e25fff3c8b7b29481e7c3d2887928d3ca Mon Sep 17 00:00:00 2001
+From 0d35a3fca81a4c32053dae24526c81e955919478 Mon Sep 17 00:00:00 2001
 From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
-Date: Sat, 9 Dec 2017 21:48:09 +0800
+Date: Sun, 10 Dec 2017 13:09:23 +0800
 Subject: [PATCH 1/1] add sbi console again
 
 Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
@@ -8,10 +8,10 @@ Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
  arch/riscv/Kconfig               |   5 ++
  arch/riscv/include/asm/sbi-con.h |   8 ++
  arch/riscv/kernel/Makefile       |   1 +
- arch/riscv/kernel/irq.c          |  18 +++++
+ arch/riscv/kernel/irq.c          |  10 +++
  arch/riscv/kernel/sbi-con.c      | 155 +++++++++++++++++++++++++++++++++++++++
  arch/riscv/kernel/setup.c        |   7 --
- 6 files changed, 187 insertions(+), 7 deletions(-)
+ 6 files changed, 179 insertions(+), 7 deletions(-)
  create mode 100644 arch/riscv/include/asm/sbi-con.h
  create mode 100644 arch/riscv/kernel/sbi-con.c
 
@@ -57,7 +57,7 @@ index ab8baf7..afe9dde 100644
  
  clean:
 diff --git a/arch/riscv/kernel/irq.c b/arch/riscv/kernel/irq.c
-index 328718e..09e7db3 100644
+index 328718e..99afb70 100644
 --- a/arch/riscv/kernel/irq.c
 +++ b/arch/riscv/kernel/irq.c
 @@ -20,6 +20,12 @@
@@ -73,20 +73,12 @@ index 328718e..09e7db3 100644
  void __init init_IRQ(void)
  {
  	irqchip_init();
-@@ -36,4 +42,16 @@ asmlinkage void __irq_entry do_IRQ(unsigned int cause, struct pt_regs *regs)
+@@ -36,4 +42,8 @@ asmlinkage void __irq_entry do_IRQ(unsigned int cause, struct pt_regs *regs)
  	 */
  	riscv_intc_irq(cause, regs);
  #endif
 +
-+    sbi_console_putchar('o');
-+    sbi_console_putchar('o');
-+    sbi_console_putchar('o');
-+    sbi_console_putchar('\n');
 +#ifdef CONFIG_SBI_CONSOLE
-+    sbi_console_putchar('i');
-+    sbi_console_putchar('i');
-+    sbi_console_putchar('i');
-+    sbi_console_putchar('\n');
 +	sbi_console_isr();
 +#endif
  }
