@@ -1,0 +1,54 @@
+diff --git a/include/qemu-common.h b/include/qemu-common.h
+index 9e8b0bd..1683c15 100644
+--- a/include/qemu-common.h
++++ b/include/qemu-common.h
+@@ -138,4 +138,7 @@ void page_size_init(void);
+  * returned. */
+ bool dump_in_progress(void);
+ 
++#define printd(fmt, ...)                                         \
++    error_printf("%s/%d: " fmt, __func__, __LINE__, ##__VA_ARGS__)
++
+ #endif
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index 3e4276a..7be945f 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -156,11 +156,13 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
+         int dirty = (mstatus & MSTATUS_FS) == MSTATUS_FS;
+         dirty |= (mstatus & MSTATUS_XS) == MSTATUS_XS;
+         mstatus = set_field(mstatus, MSTATUS64_SD, dirty);
++        printd("mstatus %lx->%lx, pc %lx\n", env->mstatus, mstatus, env->pc);
+         env->mstatus = mstatus;
+         break;
+     }
+     case CSR_MIP: {
+         target_ulong mask = MIP_SSIP | MIP_STIP;
++        printd("write mip %lx->%lx, pc %lx\n", env->mip, (env->mip & ~mask) |(val_to_write & mask), env->pc);
+         env->mip = (env->mip & ~mask) |
+             (val_to_write & mask);
+         if (env->mip & MIP_SSIP) {
+@@ -649,9 +651,9 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
+ 
+     target_ulong mstatus = env->mstatus;
+     target_ulong prev_priv = get_field(mstatus, MSTATUS_SPP);
+-    mstatus = set_field(mstatus, MSTATUS_UIE << prev_priv,
++    mstatus = set_field(mstatus, MSTATUS_SIE,
+                         get_field(mstatus, MSTATUS_SPIE));
+-    mstatus = set_field(mstatus, MSTATUS_SPIE, 0);
++    mstatus = set_field(mstatus, MSTATUS_SPIE, 1);
+     mstatus = set_field(mstatus, MSTATUS_SPP, PRV_U);
+     set_privilege(env, prev_priv);
+     csr_write_helper(env, mstatus, CSR_MSTATUS);
+@@ -672,9 +674,9 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
+ 
+     target_ulong mstatus = env->mstatus;
+     target_ulong prev_priv = get_field(mstatus, MSTATUS_MPP);
+-    mstatus = set_field(mstatus, MSTATUS_UIE << prev_priv,
++    mstatus = set_field(mstatus, MSTATUS_MIE,
+                         get_field(mstatus, MSTATUS_MPIE));
+-    mstatus = set_field(mstatus, MSTATUS_MPIE, 0);
++    mstatus = set_field(mstatus, MSTATUS_MPIE, 1);
+     mstatus = set_field(mstatus, MSTATUS_MPP, PRV_U);
+     set_privilege(env, prev_priv);
+     csr_write_helper(env, mstatus, CSR_MSTATUS);

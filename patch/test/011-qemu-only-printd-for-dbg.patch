@@ -1,0 +1,12 @@
+diff --git a/include/qemu-common.h b/include/qemu-common.h
+index 9e8b0bd..1683c15 100644
+--- a/include/qemu-common.h
++++ b/include/qemu-common.h
+@@ -138,4 +138,7 @@ void page_size_init(void);
+  * returned. */
+ bool dump_in_progress(void);
+ 
++#define printd(fmt, ...)                                         \
++    error_printf("%s/%d: " fmt, __func__, __LINE__, ##__VA_ARGS__)
++
+ #endif
