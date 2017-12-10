@@ -1,0 +1,13 @@
+diff --git a/hw/riscv/htif/htif.c b/hw/riscv/htif/htif.c
+index 1861d49..2bc49ef 100644
+--- a/hw/riscv/htif/htif.c
++++ b/hw/riscv/htif/htif.c
+@@ -78,6 +78,8 @@ static void htif_recv(void *opaque, const uint8_t *buf, int size)
+ 
+     htifstate->env->mfromhost = (val_written >> 48 << 48) | (resp << 16 >> 16);
+     htifstate->env->mip |= MIP_SEIP;
++    htifstate->env->mstatus |= MSTATUS_SIE;
++    htifstate->env->mstatus |= MSTATUS_MIE;
+     qemu_irq_raise(htifstate->irq);
+ }
+ 

@@ -1,0 +1,681 @@
+diff --git a/exec.c b/exec.c
+index c81d5ab..7add70c 100644
+--- a/exec.c
++++ b/exec.c
+@@ -642,6 +642,7 @@ void cpu_exec_init(CPUState *cpu, Error **errp)
+     CPUClass *cc ATTRIBUTE_UNUSED = CPU_GET_CLASS(cpu);
+     Error *local_err ATTRIBUTE_UNUSED = NULL;
+ 
++    printd("\n");
+     cpu->as = NULL;
+     cpu->num_ases = 0;
+ 
+diff --git a/hw/riscv/htif/htif.c b/hw/riscv/htif/htif.c
+index 9be5f02..7e53c76 100644
+--- a/hw/riscv/htif/htif.c
++++ b/hw/riscv/htif/htif.c
+@@ -75,8 +75,22 @@ static void htif_recv(void *opaque, const uint8_t *buf, int size)
+ 
+     uint64_t val_written = htifstate->pending_read;
+     uint64_t resp = 0x100 | *buf;
++    CPUState *cs = CPU(riscv_env_get_cpu(htifstate->env));
+ 
+     htifstate->env->mfromhost = (val_written >> 48 << 48) | (resp << 16 >> 16);
++    printd("fromhost%lx,irq%p,cs.int_req%x,tcg_exit%x,pc%lx,sepc%lx,priv%lx,scause%lx,mstatus%lx\n",
++            htifstate->env->mfromhost,
++            htifstate->irq,
++            cs->interrupt_request,
++            cs->tcg_exit_req,
++            htifstate->env->pc,
++            htifstate->env->sepc,
++            htifstate->env->priv,
++            htifstate->env->scause,
++            htifstate->env->mstatus);
++    htifstate->env->mip |= MIP_SEIP;
++    htifstate->env->mstatus |= MSTATUS_SIE;
++    htifstate->env->mstatus |= MSTATUS_MIE;
+     qemu_irq_raise(htifstate->irq);
+ }
+ 
+@@ -278,6 +292,8 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
+ static uint64_t htif_mm_read(void *opaque, hwaddr addr, unsigned size)
+ {
+     HTIFState *htifstate = opaque;
++    printd("addr %lx, tohost %lx, fromhost %lx\n",
++            addr, htifstate->tohost_offset, htifstate->fromhost_offset);
+     if (addr == TOHOST_OFFSET1) {
+         return htifstate->env->mtohost & 0xFFFFFFFF;
+     } else if (addr == TOHOST_OFFSET2) {
+@@ -298,6 +314,8 @@ static void htif_mm_write(void *opaque, hwaddr addr,
+                             uint64_t value, unsigned size)
+ {
+     HTIFState *htifstate = opaque;
++    printd("addr %lx, val %lx tohost %lx, fromhost %lx\n",
++            addr, value, htifstate->tohost_offset, htifstate->fromhost_offset);
+     if (addr == TOHOST_OFFSET1) {
+         if (htifstate->env->mtohost == 0x0) {
+             htifstate->allow_tohost = 1;
+@@ -325,6 +343,7 @@ static void htif_mm_write(void *opaque, hwaddr addr,
+     } else if (addr == FROMHOST_OFFSET2) {
+         htifstate->env->mfromhost |= value << 32;
+         if (htifstate->env->mfromhost == 0x0) {
++            htifstate->env->mip &= ~MIP_SEIP;
+             qemu_irq_lower(htifstate->irq);
+         }
+         htifstate->fromhost_inprogress = 0;
+@@ -393,6 +412,8 @@ HTIFState *htif_mm_init(MemoryRegion *address_space,
+ #endif
+         }
+     }
++    printd("fromhost addr%lx,size%lx, tohost addr%lx,size%lx,irq%p\n",
++            fromhost_addr, fromhost_size, tohost_addr, tohost_size, irq);
+ 
+     /* now setup HTIF device */
+     HTIFState *htifstate;
+diff --git a/hw/riscv/riscv_hart.c b/hw/riscv/riscv_hart.c
+index bcd6eb5..d1de1e5 100644
+--- a/hw/riscv/riscv_hart.c
++++ b/hw/riscv/riscv_hart.c
+@@ -39,6 +39,7 @@ static Property riscv_harts_props[] = {
+ static void riscv_harts_cpu_reset(void *opaque)
+ {
+     RISCVCPU *cpu = opaque;
++    printd("\n");
+     cpu_reset(CPU(cpu));
+ }
+ 
+@@ -50,31 +51,40 @@ static void riscv_harts_realize(DeviceState *dev, Error **errp)
+ 
+     s->harts = g_new0(RISCVCPU, s->num_harts);
+ 
++    printd("num_harts 0x%x\n", s->num_harts);
+     for (n = 0; n < s->num_harts; n++) {
+ 
++        printd("n 0x%x, cpu model %s\n", n, s->cpu_model);
+         object_initialize(&s->harts[n], sizeof(RISCVCPU), s->cpu_model);
++        printd("n 0x%x\n", n);
+         object_property_add_child(OBJECT(s), "harts[*]", OBJECT(&s->harts[n]),
+                                   &error_abort);
++        printd("n 0x%x\n", n);
+         qemu_register_reset(riscv_harts_cpu_reset, &s->harts[n]);
++        printd("n 0x%x\n", n);
+         object_property_set_bool(OBJECT(&s->harts[n]), true,
+                                  "realized", &err);
++        printd("n 0x%x\n", n);
+         if (err) {
+             error_propagate(errp, err);
+             return;
+         }
+     }
++    printd("n 0x%x\n", n);
+ }
+ 
+ static void riscv_harts_class_init(ObjectClass *klass, void *data)
+ {
+     DeviceClass *dc = DEVICE_CLASS(klass);
+ 
++    printd("\n");
+     dc->props = riscv_harts_props;
+     dc->realize = riscv_harts_realize;
+ }
+ 
+ static void riscv_harts_init(Object *obj)
+ {
++    printd("\n");
+     /* RISCVHartArrayState *s = SIFIVE_COREPLEX(obj); */
+ }
+ 
+diff --git a/hw/riscv/sifive_clint.c b/hw/riscv/sifive_clint.c
+index 29dfddc..24af018 100644
+--- a/hw/riscv/sifive_clint.c
++++ b/hw/riscv/sifive_clint.c
+@@ -53,6 +53,7 @@ static void sifive_clint_irq_request(void *opaque, int irq, int level)
+     CPURISCVState *env = &cpu->env;
+     CPUState *cs = CPU(cpu);
+ 
++    printd("irq%x,level%x\n", irq, level);
+     /* current irqs:
+        4: Host Interrupt. mfromhost should have a nonzero value
+        3: Machine Timer. MIP_MTIP should have already been set
+@@ -294,6 +295,7 @@ DeviceState *sifive_clint_create(hwaddr addr, hwaddr size,
+         env->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL,
+                                   &sifive_clint_timer_cb, env);
+         env->timecmp = 0;
++        printd("irq 4 %p", env->irq[4]);
+     }
+ 
+     DeviceState *dev = qdev_create(NULL, TYPE_SIFIVE_CLINT);
+diff --git a/hw/riscv/sifive_prci.c b/hw/riscv/sifive_prci.c
+index 0d7705a..5c26f4b 100644
+--- a/hw/riscv/sifive_prci.c
++++ b/hw/riscv/sifive_prci.c
+@@ -63,6 +63,7 @@ static void sifive_prci_init(Object *obj)
+ {
+     SiFivePRCIState *s = SIFIVE_PRCI(obj);
+ 
++    printd("\n");
+     memory_region_init_io(&s->mmio, obj, &sifive_prci_ops, s,
+                           TYPE_SIFIVE_PRCI, 0x8000);
+     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->mmio);
+diff --git a/hw/riscv/sifive_uart.c b/hw/riscv/sifive_uart.c
+index 88a5752..03012a9 100644
+--- a/hw/riscv/sifive_uart.c
++++ b/hw/riscv/sifive_uart.c
+@@ -161,6 +161,7 @@ static void sifive_uart_init(Object *obj)
+ {
+     SiFiveUARTState *s = SIFIVE_UART(obj);
+ 
++    printd("\n");
+     memory_region_init_io(&s->mmio, obj, &uart_ops, s,
+                           TYPE_SIFIVE_UART, SIFIVE_UART_MAX);
+     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->mmio);
+diff --git a/hw/riscv/spike_v1_10.c b/hw/riscv/spike_v1_10.c
+index 5fcc47e..2840560 100644
+--- a/hw/riscv/spike_v1_10.c
++++ b/hw/riscv/spike_v1_10.c
+@@ -81,6 +81,8 @@ static uint64_t load_kernel(const char *kernel_filename)
+         error_report("qemu: could not load kernel '%s'\n", kernel_filename);
+         exit(1);
+     }
++    printd("after load kernel, entry %lx, high addr %lx\n",
++            kernel_entry, kernel_high);
+     return kernel_entry;
+ }
+ 
+@@ -159,6 +161,7 @@ static void riscv_spike_board_init(MachineState *machine)
+     MemoryRegion *boot_rom = g_new(MemoryRegion, 1);
+     int i;
+ 
++    printd("\n");
+     /* Make sure the first 3 serial ports are associated with a device. */
+     for (i = 0; i < 3; i++) {
+         if (!serial_hds[i]) {
+@@ -168,26 +171,36 @@ static void riscv_spike_board_init(MachineState *machine)
+         }
+     }
+ 
++    printd("\n");
+     /* Initialize SOC */
+     object_initialize(&s->soc, sizeof(s->soc), TYPE_RISCV_HART_ARRAY);
++    printd("\n");
+     object_property_add_child(OBJECT(machine), "soc", OBJECT(&s->soc),
+                               &error_abort);
++    printd("\n");
+     object_property_set_str(OBJECT(&s->soc), "riscv-imafdcs-priv1.10",
+                             "cpu-model", &error_abort);
++    printd("\n");
+     object_property_set_int(OBJECT(&s->soc), smp_cpus, "num-harts",
+                             &error_abort);
++    printd("\n");
+     object_property_set_bool(OBJECT(&s->soc), true, "realized",
+                             &error_abort);
+ 
++    printd("\n");
+     /* register system main memory (actual RAM) */
+     memory_region_init_ram(main_mem, NULL, "riscv_spike_board.ram",
+                            machine->ram_size, &error_fatal);
+     vmstate_register_ram_global(main_mem);
+     memory_region_add_subregion(system_memory, DRAM_BASE, main_mem);
+ 
++    printd("\n");
+     /* create device tree */
+     create_fdt(s, DRAM_BASE, machine->ram_size);
+ 
++    printd("smp cpus %x, harts %x, ram size %lx\n",
++            smp_cpus, s->soc.num_harts, machine->ram_size);
++
+     /* boot rom */
+     memory_region_init_ram(boot_rom, NULL, "riscv_spike_board.bootrom",
+                            s->fdt_size + 0x2000, &error_fatal);
+@@ -222,16 +235,16 @@ static void riscv_spike_board_init(MachineState *machine)
+     qemu_fdt_dumpdtb(s->fdt, s->fdt_size);
+     cpu_physical_memory_write(ROM_BASE + sizeof(reset_vec), s->fdt, s->fdt_size);
+ 
++    /* Core Local Interruptor (timer and IPI) */
++    sifive_clint_create(0x2000000, 0x10000, &s->soc,
++        SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
++
+     /* add memory mapped htif registers at location specified in the symbol
+        table of the elf being loaded (thus kernel_filename is passed to the
+        init rather than an address) */
+     htif_mm_init(system_memory, machine->kernel_filename,
+         s->soc.harts[0].env.irq[4], boot_rom,
+         &s->soc.harts[0].env, serial_hds[0]);
+-
+-    /* Core Local Interruptor (timer and IPI) */
+-    sifive_clint_create(0x2000000, 0x10000, &s->soc,
+-        SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
+ }
+ 
+ static int riscv_spike_board_sysbus_device_init(SysBusDevice *sysbusdev)
+diff --git a/include/qemu-common.h b/include/qemu-common.h
+index 9e8b0bd..1683c15 100644
+--- a/include/qemu-common.h
++++ b/include/qemu-common.h
+@@ -138,4 +138,7 @@ void page_size_init(void);
+  * returned. */
+ bool dump_in_progress(void);
+ 
++#define printd(fmt, ...)                                         \
++    error_printf("%s/%d: " fmt, __func__, __LINE__, ##__VA_ARGS__)
++
+ #endif
+diff --git a/target-riscv/cpu.c b/target-riscv/cpu.c
+index f8bb2eb..03c88ae 100644
+--- a/target-riscv/cpu.c
++++ b/target-riscv/cpu.c
+@@ -34,6 +34,7 @@ typedef struct RISCVCPUInfo {
+ static void riscv_imacs_priv1_9_cpu_init(Object *obj)
+ {
+     CPURISCVState *env = &RISCV_CPU(obj)->env;
++    printd("\n");
+     env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVC|RVS;
+     env->user_ver = USER_VERSION_2_02_0;
+     env->priv_ver = PRIV_VERSION_1_09_1;
+@@ -42,6 +43,7 @@ static void riscv_imacs_priv1_9_cpu_init(Object *obj)
+ static void riscv_imafdcs_priv1_9_cpu_init(Object *obj)
+ {
+     CPURISCVState *env = &RISCV_CPU(obj)->env;
++    printd("\n");
+     env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC|RVS;
+     env->user_ver = USER_VERSION_2_02_0;
+     env->priv_ver = PRIV_VERSION_1_09_1;
+@@ -50,6 +52,7 @@ static void riscv_imafdcs_priv1_9_cpu_init(Object *obj)
+ static void riscv_imacs_priv1_10_cpu_init(Object *obj)
+ {
+     CPURISCVState *env = &RISCV_CPU(obj)->env;
++    printd("\n");
+     env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVC|RVS;
+     env->user_ver = USER_VERSION_2_02_0;
+     env->priv_ver = PRIV_VERSION_1_10_0;
+@@ -58,6 +61,7 @@ static void riscv_imacs_priv1_10_cpu_init(Object *obj)
+ static void riscv_imafdcs_priv1_10_cpu_init(Object *obj)
+ {
+     CPURISCVState *env = &RISCV_CPU(obj)->env;
++    printd("\n");
+     env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC|RVS;
+     env->user_ver = USER_VERSION_2_02_0;
+     env->priv_ver = PRIV_VERSION_1_10_0;
+@@ -80,6 +84,7 @@ static void riscv_cpu_set_pc(CPUState *cs, vaddr value)
+ {
+     RISCVCPU *cpu = RISCV_CPU(cs);
+     CPURISCVState *env = &cpu->env;
++    printd("new pc 0x%lx\n", value);
+     env->pc = value;
+ }
+ 
+@@ -87,6 +92,7 @@ static void riscv_cpu_synchronize_from_tb(CPUState *cs, TranslationBlock *tb)
+ {
+     RISCVCPU *cpu = RISCV_CPU(cs);
+     CPURISCVState *env = &cpu->env;
++    printd("new pc 0x%lx\n", tb->pc);
+     env->pc = tb->pc;
+ }
+ 
+@@ -101,14 +107,23 @@ static bool riscv_cpu_has_work(CPUState *cs)
+     RISCVCPU *cpu = RISCV_CPU(cs);
+     CPURISCVState *env = &cpu->env;
+     bool has_work = false;
++    int interruptno = 0;
+ 
+     if (cs->interrupt_request & CPU_INTERRUPT_HARD) {
+-        int interruptno = cpu_riscv_hw_interrupts_pending(env);
++        interruptno = cpu_riscv_hw_interrupts_pending(env);
+         if (interruptno + 1) {
+             has_work = true;
+         }
+     }
+ 
++    printd("haswork%x,intNO.%x,exint%x,mie&mip%lx,priv%lx,mie%lx,sie%lx,mstatus%lx,mideleg%lx\n",
++            has_work, interruptno,
++            cs->interrupt_request & CPU_INTERRUPT_HARD,
++            env->mip & env->mie, env->priv,
++            get_field(env->mstatus, MSTATUS_MIE),
++            get_field(env->mstatus, MSTATUS_SIE),
++            env->mstatus, env->mideleg);
++
+     return has_work;
+ }
+ #endif
+@@ -126,17 +141,20 @@ static void riscv_cpu_reset(CPUState *s)
+     CPURISCVState *env = &cpu->env;
+     CPUState *cs = CPU(cpu);
+ 
++    printd("mcc->parent_reset %p\n", mcc->parent_reset);
+     mcc->parent_reset(s);
+ #ifndef CONFIG_USER_ONLY
+     tlb_flush(s, 1);
+     env->priv = PRV_M;
+     env->mtvec = DEFAULT_MTVEC;
++    printd("mhartid a0(x10) 0x%lx, dtb ptr a1(x11) 0x%lx\n", env->gpr[10], env->gpr[11]);
+ #endif
+     env->pc = DEFAULT_RSTVEC;
+     cs->exception_index = EXCP_NONE;
+ }
+ 
+ static void riscv_cpu_disas_set_info(CPUState *s, disassemble_info *info) {
++    printd("\n");
+     info->print_insn = print_insn_riscv;
+ }
+ 
+@@ -153,10 +171,14 @@ static void riscv_cpu_realize(DeviceState *dev, Error **errp)
+     if (env->misa & RVD) set_feature(env, RISCV_FEATURE_RVD);
+     if (env->misa & RVC) set_feature(env, RISCV_FEATURE_RVC);
+ 
++    printd("\n");
+     cpu_reset(cs);
++    printd("\n");
+     qemu_init_vcpu(cs);
++    printd("\n");
+     set_default_nan_mode(1, &env->fp_status);
+ 
++    printd("mcc->parent_realize %p\n", mcc->parent_realize);
+     mcc->parent_realize(dev, errp);
+ }
+ 
+@@ -166,12 +188,15 @@ static void riscv_cpu_init(Object *obj)
+     RISCVCPU *cpu = RISCV_CPU(obj);
+     CPURISCVState *env = &cpu->env;
+ 
++    printd("\n");
+     cs->env_ptr = env;
+     cpu_exec_init(cs, &error_abort);
+ 
++    printd("\n");
+     if (tcg_enabled()) {
+         riscv_tcg_init();
+     }
++    printd("\n");
+ }
+ 
+ static const VMStateDescription vmstate_riscv_cpu = {
+@@ -190,6 +215,8 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
+ 
+     mcc->parent_reset = cc->reset;
+     cc->reset = riscv_cpu_reset;
++    printd("mcc parent realize %p, parent_reset, %p\n",
++            mcc->parent_realize, mcc->parent_reset);
+ 
+     cc->has_work = riscv_cpu_has_work;
+     cc->do_interrupt = riscv_cpu_do_interrupt;
+@@ -277,6 +304,7 @@ RISCVCPU *cpu_riscv_init(const char *cpu_model)
+     RISCVCPU *cpu = RISCV_CPU(object_new(TYPE_RISCV_CPU));
+     CPURISCVState *env = &cpu->env;
+ 
++    printd("\n");
+     env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC;
+     env->user_ver = USER_VERSION_2_02_0;
+     env->priv_ver = PRIV_VERSION_1_09_1;
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index ba8e252..bdf6e16 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -27,7 +27,56 @@
+ #include <signal.h>
+ #include "cpu.h"
+ 
+-/*#define RISCV_DEBUG_INTERRUPT */
++static const char * const riscv_excp_names[16] = {
++    "misaligned_fetch",
++    "fault_fetch",
++    "illegal_instruction",
++    "breakpoint",
++    "misaligned_load",
++    "fault_load",
++    "misaligned_store",
++    "fault_store",
++    "user_ecall",
++    "supervisor_ecall",
++    "hypervisor_ecall",
++    "machine_ecall",
++    "exec_page_fault",
++    "load_page_fault",
++    "reserved",
++    "store_page_fault"
++};
++
++static const char * const riscv_interrupt_names[14] = {
++    "u_software",
++    "s_software",
++    "h_software",
++    "m_software",
++    "u_timer",
++    "s_timer",
++    "h_timer",
++    "m_timer",
++    "u_external",
++    "s_external",
++    "h_external",
++    "m_external",
++    "coprocessor",
++    "host"
++};
++
++static const char * get_exception_name(int32_t exception_index){
++    if(exception_index & 0x70000000U){
++        exception_index &= 0x0fffffff;
++        if(exception_index >=0 && exception_index < 14){
++            return riscv_interrupt_names[exception_index];
++        }
++    }
++    else{
++        if(exception_index >=0 && exception_index < 16){
++            return riscv_excp_names[exception_index];
++        }
++    }
++    return "unknown";
++}
+ 
+ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+ {
+@@ -36,6 +85,12 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+         RISCVCPU *cpu = RISCV_CPU(cs);
+         CPURISCVState *env = &cpu->env;
+         int interruptno = cpu_riscv_hw_interrupts_pending(env);
++        /*
++        printd("int %s, req 0x%x, pc %lx, mip&mie 0x%lx, mtvec 0x%lx, stvec 0x%lx\n",
++                get_exception_name(interruptno|0x70000000U),
++                interrupt_request, env->pc,
++                env->mip & env->mie, env->mtvec, env->stvec);
++                */
+         if (interruptno + 1) {
+             cs->exception_index = 0x70000000U | interruptno;
+             riscv_cpu_do_interrupt(cs);
+@@ -335,44 +390,6 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
+     return ret;
+ }
+ 
+-#ifdef RISCV_DEBUG_INTERRUPT
+-static const char * const riscv_excp_names[16] = {
+-    "misaligned_fetch",
+-    "fault_fetch",
+-    "illegal_instruction",
+-    "breakpoint",
+-    "misaligned_load",
+-    "fault_load",
+-    "misaligned_store",
+-    "fault_store",
+-    "user_ecall",
+-    "supervisor_ecall",
+-    "hypervisor_ecall",
+-    "machine_ecall",
+-    "exec_page_fault",
+-    "load_page_fault",
+-    "reserved",
+-    "store_page_fault"
+-};
+-
+-static const char * const riscv_interrupt_names[14] = {
+-    "u_software",
+-    "s_software",
+-    "h_software",
+-    "m_software",
+-    "u_timer",
+-    "s_timer",
+-    "h_timer",
+-    "m_timer",
+-    "u_external",
+-    "s_external",
+-    "h_external",
+-    "m_external",
+-    "coprocessor",
+-    "host"
+-};
+-#endif     /* RISCV_DEBUG_INTERRUPT */
+-
+ /*
+  * Handle Traps
+  *
+@@ -386,17 +403,6 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+     RISCVCPU *cpu = RISCV_CPU(cs);
+     CPURISCVState *env = &cpu->env;
+ 
+-    #ifdef RISCV_DEBUG_INTERRUPT
+-    if (cs->exception_index & 0x70000000) {
+-        fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n"
+-                , riscv_interrupt_names[cs->exception_index & 0x0fffffff],
+-                env->pc);
+-    } else {
+-        fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n"
+-                , riscv_excp_names[cs->exception_index], env->pc);
+-    }
+-    #endif
+-
+     if (cs->exception_index == RISCV_EXCP_BREAKPOINT) {
+         fprintf(stderr, "debug mode not implemented\n");
+     }
+@@ -436,6 +442,10 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+     target_ulong bit = fixed_cause;
+     target_ulong deleg = env->medeleg;
+ 
++    printd("exception %s, pc 0x%lx, fixed_cause 0x%lx, badaddr 0x%lx, mdeleg 0x%lx\n",
++            get_exception_name(cs->exception_index),
++            env->pc, fixed_cause, env->badaddr, env->medeleg);
++
+     int hasbadaddr =
+         (fixed_cause == RISCV_EXCP_INST_ADDR_MIS) ||
+         (fixed_cause == RISCV_EXCP_INST_ACCESS_FAULT) ||
+@@ -459,10 +469,8 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         env->sepc = backup_epc;
+ 
+         if (hasbadaddr) {
+-            #ifdef RISCV_DEBUG_INTERRUPT
+-            fprintf(stderr, "core %d: badaddr 0x" TARGET_FMT_lx "\n",
+-                    env->mhartid, env->badaddr);
+-            #endif
++            printd("core %d: badaddr 0x%lx pc 0x%lx, sepc 0x%lx\n",
++                    env->mhartid, env->badaddr, env->pc, env->sepc);
+             env->sbadaddr = env->badaddr;
+         }
+ 
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index 3e4276a..85e5e40 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -687,6 +687,7 @@ void helper_wfi(CPURISCVState *env)
+ {
+     CPUState *cs = CPU(riscv_env_get_cpu(env));
+ 
++    printd("pc 0x%lx\n", env->pc);
+     cs->halted = 1;
+     cs->exception_index = EXCP_HLT;
+     cpu_loop_exit(cs);
+diff --git a/target-riscv/translate.c b/target-riscv/translate.c
+index b8e0200..b3819be 100644
+--- a/target-riscv/translate.c
++++ b/target-riscv/translate.c
+@@ -2007,11 +2007,13 @@ void riscv_tcg_init(void)
+     int i;
+     static int inited;
+ 
++    printd("\n");
+     /* Initialize various static tables. */
+     if (inited) {
+         return;
+     }
+ 
++    printd("\n");
+     cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
+ 
+     /* WARNING: cpu_gpr[0] is not allocated ON PURPOSE. Do not use it. */
+diff --git a/vl.c b/vl.c
+index eafda8d..f320ed1 100644
+--- a/vl.c
++++ b/vl.c
+@@ -4214,6 +4214,8 @@ int main(int argc, char **argv, char **envp)
+ #endif
+     }
+ 
++    printd("nographic%x,default:parallel%x,serial%x,monitor%x,virtcon%x,sclp%x\n",
++            nographic, default_parallel, default_serial, default_monitor, default_virtcon, default_sclp);
+     if (nographic) {
+         if (default_parallel)
+             add_device_config(DEV_PARALLEL, "null");
+@@ -4522,7 +4524,9 @@ int main(int argc, char **argv, char **envp)
+     current_machine->boot_order = boot_order;
+     current_machine->cpu_model = cpu_model;
+ 
++    printd("\n");
+     machine_class->init(current_machine);
++    printd("\n");
+ 
+     realtime_init();
+ 
+@@ -4630,20 +4634,26 @@ int main(int argc, char **argv, char **envp)
+        reading from the other reads, because timer polling functions query
+        clock values from the log. */
+     replay_checkpoint(CHECKPOINT_RESET);
++    printd("\n");
+     qemu_system_reset(VMRESET_SILENT);
++    printd("\n");
+     register_global_state();
++    printd("\n");
+     if (loadvm) {
+         if (load_vmstate(loadvm) < 0) {
+             autostart = 0;
+         }
+     }
++    printd("\n");
+ 
+     qdev_prop_check_globals();
++    printd("\n");
+     if (vmstate_dump_file) {
+         /* dump and exit */
+         dump_vmstate_json_to_file(vmstate_dump_file);
+         return 0;
+     }
++    printd("\n");
+ 
+     if (incoming) {
+         Error *local_err = NULL;
+@@ -4652,21 +4662,30 @@ int main(int argc, char **argv, char **envp)
+             error_reportf_err(local_err, "-incoming %s: ", incoming);
+             exit(1);
+         }
++    printd("\n");
+     } else if (autostart) {
+         vm_start();
++    printd("\n");
+     }
+ 
++    printd("\n");
+     os_setup_post();
+ 
++    printd("\n");
+     trace_init_vcpu_events();
++    printd("\n");
+     main_loop();
++    printd("\n");
+     replay_disable_events();
++    printd("\n");
+     iothread_stop_all();
+ 
++    printd("\n");
+     bdrv_close_all();
+     pause_all_vcpus();
+     res_free();
+ 
++    printd("\n");
+     /* vhost-user must be cleaned up before chardevs.  */
+     net_cleanup();
+     audio_cleanup();

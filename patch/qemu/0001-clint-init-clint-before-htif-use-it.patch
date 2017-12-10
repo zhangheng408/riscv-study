@@ -1,0 +1,40 @@
+From 6a6d406fd8ecf68332c44076de9f47c32d816ce4 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sun, 10 Dec 2017 13:01:05 +0800
+Subject: [PATCH 1/2] clint: init clint before htif use it
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+
+HTIF may have irq[4] as NULL.
+---
+ hw/riscv/spike_v1_10.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/hw/riscv/spike_v1_10.c b/hw/riscv/spike_v1_10.c
+index 5fcc47e..0900152 100644
+--- a/hw/riscv/spike_v1_10.c
++++ b/hw/riscv/spike_v1_10.c
+@@ -222,16 +222,16 @@ static void riscv_spike_board_init(MachineState *machine)
+     qemu_fdt_dumpdtb(s->fdt, s->fdt_size);
+     cpu_physical_memory_write(ROM_BASE + sizeof(reset_vec), s->fdt, s->fdt_size);
+ 
++    /* Core Local Interruptor (timer and IPI) */
++    sifive_clint_create(0x2000000, 0x10000, &s->soc,
++        SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
++
+     /* add memory mapped htif registers at location specified in the symbol
+        table of the elf being loaded (thus kernel_filename is passed to the
+        init rather than an address) */
+     htif_mm_init(system_memory, machine->kernel_filename,
+         s->soc.harts[0].env.irq[4], boot_rom,
+         &s->soc.harts[0].env, serial_hds[0]);
+-
+-    /* Core Local Interruptor (timer and IPI) */
+-    sifive_clint_create(0x2000000, 0x10000, &s->soc,
+-        SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
+ }
+ 
+ static int riscv_spike_board_sysbus_device_init(SysBusDevice *sysbusdev)
+-- 
+2.7.4
+
