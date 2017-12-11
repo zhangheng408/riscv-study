@@ -1,0 +1,26 @@
+From 3da918c42bd16b814e236da663205f2b617b7646 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Mon, 11 Dec 2017 16:23:10 +0800
+Subject: [PATCH 3/4] clint: fix bug on qemu_allocate_irq
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ hw/riscv/sifive_clint.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/riscv/sifive_clint.c b/hw/riscv/sifive_clint.c
+index 29dfddc..827d517 100644
+--- a/hw/riscv/sifive_clint.c
++++ b/hw/riscv/sifive_clint.c
+@@ -289,7 +289,7 @@ DeviceState *sifive_clint_create(hwaddr addr, hwaddr size,
+         CPURISCVState *env = &soc->harts[i].env;
+         for (j = 0; j < MAX_RISCV_IRQ; j++) {
+             env->irq[j] = qemu_allocate_irq(sifive_clint_irq_request,
+-                                            riscv_env_get_cpu(env), 0);
++                                            riscv_env_get_cpu(env), j);
+         }
+         env->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL,
+                                   &sifive_clint_timer_cb, env);
+-- 
+2.7.4
+

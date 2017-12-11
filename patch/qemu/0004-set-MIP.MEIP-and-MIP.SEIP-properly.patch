@@ -1,0 +1,68 @@
+From 520381052396fecd00cc0ffdb59a9f35488a74f8 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Mon, 11 Dec 2017 17:16:55 +0800
+Subject: [PATCH 4/4] set MIP.MEIP and MIP.SEIP properly
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+
+MIP.MEIP should be set and cleared by a platform-specific interrupt controller.
+Now temporarily set MEIP in clint(Core Local Interruptor).
+---
+ hw/riscv/sifive_clint.c | 27 ++++++++++++++++++++++-----
+ target-riscv/cpu.h      |  1 +
+ 2 files changed, 23 insertions(+), 5 deletions(-)
+
+diff --git a/hw/riscv/sifive_clint.c b/hw/riscv/sifive_clint.c
+index 827d517..47a7a44 100644
+--- a/hw/riscv/sifive_clint.c
++++ b/hw/riscv/sifive_clint.c
+@@ -64,12 +64,29 @@ static void sifive_clint_irq_request(void *opaque, int irq, int level)
+     }
+ 
+     if (level) {
+-        cpu_interrupt(cs, CPU_INTERRUPT_HARD);
++        env->irq_flags |= 1U<<irq;
+     } else {
+-        if (!env->mip && !env->mfromhost) {
+-            /* no interrupts pending, no host interrupt for HTIF, reset */
+-            cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
+-        }
++        env->irq_flags &= ~(1U<<irq);
++    }
++
++    /*
++     * only htif(irq[4]) is external interrupt source
++     */
++    if(env->irq_flags & 0x10){
++        env->mip |= (MIP_MEIP |
++                MIP_MEIP & env->mideleg ? MIP_SEIP : 0U);
++    }
++    else{
++        env->mip &= ~(MIP_MEIP |
++                MIP_MEIP & env->mideleg ? MIP_SEIP : 0U);
++    }
++
++    if(env->mip){
++        cpu_interrupt(cs, CPU_INTERRUPT_HARD);
++    }
++    else{
++        /* no interrupts pending, no host interrupt for HTIF, reset */
++        cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
+     }
+ }
+ 
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index 83ebac9..37dbc97 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -163,6 +163,7 @@ typedef struct CPURISCVState {
+ 
+     /* Fields from here on are preserved across CPU reset. */
+     void *irq[8];
++    uint8_t irq_flags;
+     QEMUTimer *timer; /* Internal timer */
+ } CPURISCVState;
+ 
+-- 
+2.7.4
+

@@ -1,7 +1,7 @@
-From 6a6d406fd8ecf68332c44076de9f47c32d816ce4 Mon Sep 17 00:00:00 2001
+From bc9570650fdd31e8829a9e29cdd8f143a6de2a01 Mon Sep 17 00:00:00 2001
 From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
 Date: Sun, 10 Dec 2017 13:01:05 +0800
-Subject: [PATCH 1/2] clint: init clint before htif use it
+Subject: [PATCH 1/4] clint: init clint before htif use it
 
 Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
 

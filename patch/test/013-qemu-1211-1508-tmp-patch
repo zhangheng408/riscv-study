@@ -1,0 +1,257 @@
+diff --git a/include/qemu-common.h b/include/qemu-common.h
+index 9e8b0bd..1683c15 100644
+--- a/include/qemu-common.h
++++ b/include/qemu-common.h
+@@ -138,4 +138,7 @@ void page_size_init(void);
+  * returned. */
+ bool dump_in_progress(void);
+ 
++#define printd(fmt, ...)                                         \
++    error_printf("%s/%d: " fmt, __func__, __LINE__, ##__VA_ARGS__)
++
+ #endif
+diff --git a/target-riscv/cpu.c b/target-riscv/cpu.c
+index f8bb2eb..53f1e6a 100644
+--- a/target-riscv/cpu.c
++++ b/target-riscv/cpu.c
+@@ -126,6 +126,7 @@ static void riscv_cpu_reset(CPUState *s)
+     CPURISCVState *env = &cpu->env;
+     CPUState *cs = CPU(cpu);
+ 
++    printd("mcc->parent_reset %p\n", mcc->parent_reset);
+     mcc->parent_reset(s);
+ #ifndef CONFIG_USER_ONLY
+     tlb_flush(s, 1);
+@@ -157,6 +158,7 @@ static void riscv_cpu_realize(DeviceState *dev, Error **errp)
+     qemu_init_vcpu(cs);
+     set_default_nan_mode(1, &env->fp_status);
+ 
++    printd("mcc->parent_realize %p\n", mcc->parent_realize);
+     mcc->parent_realize(dev, errp);
+ }
+ 
+@@ -190,6 +192,8 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
+ 
+     mcc->parent_reset = cc->reset;
+     cc->reset = riscv_cpu_reset;
++    printd("mcc parent realize %p, parent_reset, %p\n",
++            mcc->parent_realize, mcc->parent_reset);
+ 
+     cc->has_work = riscv_cpu_has_work;
+     cc->do_interrupt = riscv_cpu_do_interrupt;
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index 9754760..afce020 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -146,6 +146,9 @@ typedef struct CPURISCVState {
+     uint64_t mtohost;
+     uint64_t timecmp;
+ 
++    /* temporary wfi regs*/
++    bool wfi;
++
+     /* physical memory protection */
+     pmp_table_t pmp_state;
+ #endif
+@@ -304,6 +307,15 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
+     enabled_interrupts |= pending_interrupts & env->mideleg &
+                           -s_enabled;
+ 
++    /*
++     * The WFI instruction can also be executed when interrupts are disabled.
++     * The operation of WFI must be unaffected by the global interrupt bits in
++     * mstatus (MIE/SIE/UIE) and the delegation registers [m|s|u]ideleg.
++     */
++    if(env->wfi){
++        enabled_interrupts = pending_interrupts;
++    }
++
+     if (enabled_interrupts) {
+         target_ulong counted = ctz64(enabled_interrupts); /* since non-zero */
+         if (counted == IRQ_X_HOST) {
+@@ -315,6 +327,12 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
+         } else if (counted == IRQ_S_TIMER || counted == IRQ_H_TIMER) {
+             /* don't lower irq here */
+         }
++
++        /*
++         * temporarily remove wfi signal here.
++         */
++        env->wfi = 0;
++
+         return counted;
+     } else {
+         return EXCP_NONE; /* indicates no pending interrupt */
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index ba8e252..794df0d 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -27,7 +27,56 @@
+ #include <signal.h>
+ #include "cpu.h"
+ 
+-/*#define RISCV_DEBUG_INTERRUPT */
++static const char * const riscv_excp_names[16] = {
++    "misaligned_fetch",
++    "fault_fetch",
++    "illegal_instruction",
++    "breakpoint",
++    "misaligned_load",
++    "fault_load",
++    "misaligned_store",
++    "fault_store",
++    "user_ecall",
++    "supervisor_ecall",
++    "hypervisor_ecall",
++    "machine_ecall",
++    "exec_page_fault",
++    "load_page_fault",
++    "reserved",
++    "store_page_fault"
++};
++
++static const char * const riscv_interrupt_names[14] = {
++    "u_software",
++    "s_software",
++    "h_software",
++    "m_software",
++    "u_timer",
++    "s_timer",
++    "h_timer",
++    "m_timer",
++    "u_external",
++    "s_external",
++    "h_external",
++    "m_external",
++    "coprocessor",
++    "host"
++};
++
++static const char * get_exception_name(int32_t exception_index){
++    if(exception_index & 0x70000000U){
++        exception_index &= 0x0fffffff;
++        if(exception_index >=0 && exception_index < 14){
++            return riscv_interrupt_names[exception_index];
++        }
++    }
++    else{
++        if(exception_index >=0 && exception_index < 16){
++            return riscv_excp_names[exception_index];
++        }
++    }
++    return "unknown";
++}
+ 
+ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+ {
+@@ -36,6 +85,10 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+         RISCVCPU *cpu = RISCV_CPU(cs);
+         CPURISCVState *env = &cpu->env;
+         int interruptno = cpu_riscv_hw_interrupts_pending(env);
++        printd("int %s, req 0x%x, pc %lx, mip&mie 0x%lx, mstatus 0x%lx\n",
++                get_exception_name(interruptno|0x70000000U),
++                interrupt_request, env->pc,
++                env->mip & env->mie, env->mstatus);
+         if (interruptno + 1) {
+             cs->exception_index = 0x70000000U | interruptno;
+             riscv_cpu_do_interrupt(cs);
+@@ -335,44 +388,6 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
+     return ret;
+ }
+ 
+-#ifdef RISCV_DEBUG_INTERRUPT
+-static const char * const riscv_excp_names[16] = {
+-    "misaligned_fetch",
+-    "fault_fetch",
+-    "illegal_instruction",
+-    "breakpoint",
+-    "misaligned_load",
+-    "fault_load",
+-    "misaligned_store",
+-    "fault_store",
+-    "user_ecall",
+-    "supervisor_ecall",
+-    "hypervisor_ecall",
+-    "machine_ecall",
+-    "exec_page_fault",
+-    "load_page_fault",
+-    "reserved",
+-    "store_page_fault"
+-};
+-
+-static const char * const riscv_interrupt_names[14] = {
+-    "u_software",
+-    "s_software",
+-    "h_software",
+-    "m_software",
+-    "u_timer",
+-    "s_timer",
+-    "h_timer",
+-    "m_timer",
+-    "u_external",
+-    "s_external",
+-    "h_external",
+-    "m_external",
+-    "coprocessor",
+-    "host"
+-};
+-#endif     /* RISCV_DEBUG_INTERRUPT */
+-
+ /*
+  * Handle Traps
+  *
+@@ -386,17 +401,6 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+     RISCVCPU *cpu = RISCV_CPU(cs);
+     CPURISCVState *env = &cpu->env;
+ 
+-    #ifdef RISCV_DEBUG_INTERRUPT
+-    if (cs->exception_index & 0x70000000) {
+-        fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n"
+-                , riscv_interrupt_names[cs->exception_index & 0x0fffffff],
+-                env->pc);
+-    } else {
+-        fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n"
+-                , riscv_excp_names[cs->exception_index], env->pc);
+-    }
+-    #endif
+-
+     if (cs->exception_index == RISCV_EXCP_BREAKPOINT) {
+         fprintf(stderr, "debug mode not implemented\n");
+     }
+@@ -436,6 +440,10 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+     target_ulong bit = fixed_cause;
+     target_ulong deleg = env->medeleg;
+ 
++    printd("exception %s, pc 0x%lx, fixed_cause 0x%lx, badaddr 0x%lx, mdeleg 0x%lx\n",
++            get_exception_name(cs->exception_index),
++            env->pc, fixed_cause, env->badaddr, env->medeleg);
++
+     int hasbadaddr =
+         (fixed_cause == RISCV_EXCP_INST_ADDR_MIS) ||
+         (fixed_cause == RISCV_EXCP_INST_ACCESS_FAULT) ||
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index 3e4276a..b5c81d3 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -156,11 +156,13 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
+         int dirty = (mstatus & MSTATUS_FS) == MSTATUS_FS;
+         dirty |= (mstatus & MSTATUS_XS) == MSTATUS_XS;
+         mstatus = set_field(mstatus, MSTATUS64_SD, dirty);
++        printd("mstatus %lx->%lx, pc %lx\n", env->mstatus, mstatus, env->pc);
+         env->mstatus = mstatus;
+         break;
+     }
+     case CSR_MIP: {
+         target_ulong mask = MIP_SSIP | MIP_STIP;
++        printd("write mip %lx->%lx, pc %lx\n", env->mip, (env->mip & ~mask) |(val_to_write & mask), env->pc);
+         env->mip = (env->mip & ~mask) |
+             (val_to_write & mask);
+         if (env->mip & MIP_SSIP) {
+@@ -687,6 +689,7 @@ void helper_wfi(CPURISCVState *env)
+ {
+     CPUState *cs = CPU(riscv_env_get_cpu(env));
+ 
++    env->wfi = 1;
+     cs->halted = 1;
+     cs->exception_index = EXCP_HLT;
+     cpu_loop_exit(cs);
