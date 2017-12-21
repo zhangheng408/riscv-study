@@ -10,6 +10,10 @@ REPO_TOOLS			?= $(REPO_RISCV)/riscv-tools
 REPO_QEMU			?= $(REPO_RISCV)/riscv-qemu
 REPO_LINUX			?= $(REPO_RISCV)/riscv-linux
 
+QEMU_BASE			:= 2ab9055
+LINUX_BASE			:= 50c4c4e
+TOOLS_BASE			:= ccf7c12
+
 BUSYBOX_VERSION		:= 1.26.2
 BUSYBOX_TARBALL		:= /pub/backup/busybox-$(BUSYBOX_VERSION).tar.bz2
 
@@ -107,6 +111,15 @@ linux-new:
 	@echo "make tags .."
 	@make -C $(DIR_LINUX) tags ARCH=riscv
 
+linux-update:
+	@echo "clean git dir ..."
+	@cd $(DIR_LINUX);								\
+		git clean -qndif;							\
+		git checkout -f $(LINUX_BASE)
+	@echo "apply linux patch ..."
+	@cd $(DIR_LINUX);								\
+		git am $(DIR_RISCV)/patch/linux/*
+
 linux-make:
 	@test -d $(LOG_PATH) ||							\
 		mkdir -p $(LOG_PATH)
@@ -161,6 +174,16 @@ pk-make:
 	@riscv64-unknown-linux-gnu-objdump -D			\
 		$(DIR_PK)/build/bbl							\
 		> $(LOG_PATH)/dump.bbl.log
+
+qemu-update:
+	@echo "clean git dir ..."
+	@cd $(DIR_QEMU);								\
+		git clean -qndif;							\
+		git checkout -f $(QEMU_BASE)
+	@echo "apply qemu patch ..."
+	@cd $(DIR_QEMU);								\
+		git am $(DIR_RISCV)/patch/qemu/*;			\
+		git am $(DIR_RISCV)/patch/qemu/hyper/*
 
 qemu-make:
 	@test -d $(LOG_PATH) ||							\
