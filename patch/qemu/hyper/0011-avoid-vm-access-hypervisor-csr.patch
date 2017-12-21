@@ -1,0 +1,44 @@
+From 5424503d8fc89df26c20999d52a449c722423dca Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Wed, 20 Dec 2017 17:04:45 +0800
+Subject: [PATCH 11/16] avoid vm access hypervisor csr
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/disas/riscv-opc.h | 4 ++--
+ target-riscv/op_helper.c  | 4 +++-
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/include/disas/riscv-opc.h b/include/disas/riscv-opc.h
+index 99e1af5..bb96577 100644
+--- a/include/disas/riscv-opc.h
++++ b/include/disas/riscv-opc.h
+@@ -549,8 +549,8 @@
+ #define CSR_SIP 0x144
+ #define CSR_SPTBR 0x180
+ #define CSR_SATP 0x180
+-#define CSR_HVTVAL 0x1c0
+-#define CSR_HSTATUS 0x1c1
++#define CSR_HVTVAL 0x9c0
++#define CSR_HSTATUS 0x9c1
+ #define CSR_BSSTATUS 0x900
+ #define CSR_BSIE 0x904
+ #define CSR_BSTVEC 0x905
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index 4aa71ad..47ce9c8 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -671,7 +671,9 @@ void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write)
+ #ifndef CONFIG_USER_ONLY
+     unsigned csr_priv = get_field((which), 0x300);
+     unsigned csr_read_only = get_field((which), 0xC00) == 3;
+-    if (((write) && csr_read_only) || (env->priv < csr_priv)) {
++    unsigned csr_vm = csr_priv == PRV_S && get_field((which), 0xC00) == 2;
++    if (((write) && csr_read_only) || (env->priv < csr_priv)
++            || env->vm && csr_vm) {
+         do_raise_exception_err(env, RISCV_EXCP_ILLEGAL_INST, env->pc);
+     }
+ #endif
+-- 
+2.7.4
+

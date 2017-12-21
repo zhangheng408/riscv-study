@@ -1,0 +1,86 @@
+From 9a504161d1fa1562d43604944d1e6e612c482135 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 21 Dec 2017 21:03:38 +0800
+Subject: [PATCH 16/16] add hypervisor support in
+ cpu_riscv_hw_interrupts_pending
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/cpu.h      | 19 +++++++++++++++----
+ target-riscv/cpu_bits.h |  8 ++++++++
+ target-riscv/helper.c   | 10 ++++++----
+ 3 files changed, 29 insertions(+), 8 deletions(-)
+
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index 1f0457d..af7719e 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -370,10 +370,21 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
+     target_ulong enabled_interrupts = pending_interrupts &
+                                       ~env->mideleg & -m_enabled;
+ 
+-    target_ulong sie = get_field(env->mstatus, MSTATUS_SIE);
+-    target_ulong s_enabled = env->priv < PRV_S || (env->priv == PRV_S && sie);
+-    enabled_interrupts |= pending_interrupts & env->mideleg &
+-                          -s_enabled;
++    if (env->vm == 0) {
++        target_ulong sie = get_field(env->mstatus, MSTATUS_SIE);
++        target_ulong s_enabled = env->priv < PRV_S || (env->priv == PRV_S && sie);
++        enabled_interrupts |= pending_interrupts & env->mideleg &
++            -s_enabled;
++    }
++    else {
++        target_ulong bsie = get_field(env->bsstatus, BSSTATUS_SIE);
++        enabled_interrupts |= pending_interrupts & env->mideleg & ~env->hideleg &
++            -bsie;
++        target_ulong sie = get_field(env->mstatus, MSTATUS_SIE);
++        target_ulong s_enabled = env->priv < PRV_S || (env->priv == PRV_S && sie);
++        enabled_interrupts |= pending_interrupts & env->mideleg & env->hideleg &
++            -s_enabled;
++    }
+ 
+     /*
+      * The WFI instruction can also be executed when interrupts are disabled.
+diff --git a/target-riscv/cpu_bits.h b/target-riscv/cpu_bits.h
+index 1b51875..7ddab93 100644
+--- a/target-riscv/cpu_bits.h
++++ b/target-riscv/cpu_bits.h
+@@ -101,6 +101,14 @@
+ #define HSTATUS_SPV          0x00000400
+ #define HSTATUS_STL          0x00000200
+ 
++#define BSSTATUS_SIE         0x00000002
++#define BSSTATUS_SPIE        0x00000020
++#define BSSTATUS_SPP         0x00000100
++#define BSSTATUS_FS          0x00006000
++#define BSSTATUS_SUM         0x00040000
++#define BSSTATUS_MXR         0x00080000
++#define BSSTATUS_UXL         0x0000000300000000
++
+ #define MIP_SSIP            (1 << IRQ_S_SOFT)
+ #define MIP_HSIP            (1 << IRQ_H_SOFT)
+ #define MIP_MSIP            (1 << IRQ_M_SOFT)
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index fc6fe8b..b2f67aa 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -417,10 +417,12 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+                 fixed_cause = RISCV_EXCP_U_ECALL;
+                 break;
+             case PRV_S:
+-                fixed_cause = RISCV_EXCP_S_ECALL;
+-                break;
+-            case PRV_H:
+-                fixed_cause = RISCV_EXCP_H_ECALL;
++                if (env->vm == 0) {
++                    fixed_cause = RISCV_EXCP_S_ECALL;
++                }
++                else {
++                    fixed_cause = RISCV_EXCP_H_ECALL;
++                }
+                 break;
+             case PRV_M:
+                 fixed_cause = RISCV_EXCP_M_ECALL;
+-- 
+2.7.4
+

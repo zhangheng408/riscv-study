@@ -1,0 +1,73 @@
+From 145ab283be2da416b43af652f9de02d4ba80d57d Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Wed, 20 Dec 2017 17:22:47 +0800
+Subject: [PATCH 12/16] add machine level csr for hypervisor
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/disas/riscv-opc.h | 2 ++
+ target-riscv/cpu_bits.h   | 4 +++-
+ target-riscv/op_helper.c  | 5 +++++
+ 3 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/include/disas/riscv-opc.h b/include/disas/riscv-opc.h
+index bb96577..fb7febf 100644
+--- a/include/disas/riscv-opc.h
++++ b/include/disas/riscv-opc.h
+@@ -572,6 +572,7 @@
+ #define CSR_MCAUSE 0x342
+ #define CSR_MBADADDR 0x343
+ #define CSR_MIP 0x344
++#define CSR_MVTVAL 0x345
+ #define CSR_PMPCFG0 0x3a0
+ #define CSR_PMPCFG1 0x3a1
+ #define CSR_PMPCFG2 0x3a2
+@@ -1063,6 +1064,7 @@ DECLARE_CSR(mepc, CSR_MEPC)
+ DECLARE_CSR(mcause, CSR_MCAUSE)
+ DECLARE_CSR(mbadaddr, CSR_MBADADDR)
+ DECLARE_CSR(mip, CSR_MIP)
++DECLARE_CSR(mvtval, CSR_MVTVAL)
+ DECLARE_CSR(pmpcfg0, CSR_PMPCFG0)
+ DECLARE_CSR(pmpcfg1, CSR_PMPCFG1)
+ DECLARE_CSR(pmpcfg2, CSR_PMPCFG2)
+diff --git a/target-riscv/cpu_bits.h b/target-riscv/cpu_bits.h
+index c928d74..1b51875 100644
+--- a/target-riscv/cpu_bits.h
++++ b/target-riscv/cpu_bits.h
+@@ -46,7 +46,9 @@
+ #define MSTATUS_HPIE        0x00000040
+ #define MSTATUS_MPIE        0x00000080
+ #define MSTATUS_SPP         0x00000100
+-#define MSTATUS_HPP         0x00000600
++#define MSTATUS_MTL         0x00000200 /* since: priv-1.11 */
++#define MSTATUS_MPV         0x00000400 /* since: priv-1.11 */
++#define MSTATUS_HPP         0x00000600 /* until: priv-1.9.1 */
+ #define MSTATUS_MPP         0x00001800
+ #define MSTATUS_FS          0x00006000
+ #define MSTATUS_XS          0x00018000
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index 47ce9c8..2896e22 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -341,6 +341,9 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
+     case CSR_BSATP:
+         env->bsatp = val_to_write;
+         break;
++    case CSR_MVTVAL:
++        env->mvtval = val_to_write;
++        break;
+     /* end hypervisor */
+     case CSR_MEPC:
+         env->mepc = val_to_write;
+@@ -578,6 +581,8 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
+         return env->bstval;
+     case CSR_BSATP:
+         return env->bsatp;
++    case CSR_MVTVAL:
++        return env->mvtval;
+     /* end hypervisor */
+     case CSR_MSTATUS:
+         return env->mstatus;
+-- 
+2.7.4
+

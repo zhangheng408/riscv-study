@@ -1,0 +1,71 @@
+From eb519a6b80a8f15410c74af34361a926c6b80eba Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Wed, 20 Dec 2017 15:50:49 +0800
+Subject: [PATCH 09/16] add hypervisor csr in opc
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/disas/riscv-opc.h | 22 ++++++++++++++++++++++
+ target-riscv/cpu.h        |  2 ++
+ 2 files changed, 24 insertions(+)
+
+diff --git a/include/disas/riscv-opc.h b/include/disas/riscv-opc.h
+index aea580a..99e1af5 100644
+--- a/include/disas/riscv-opc.h
++++ b/include/disas/riscv-opc.h
+@@ -549,6 +549,17 @@
+ #define CSR_SIP 0x144
+ #define CSR_SPTBR 0x180
+ #define CSR_SATP 0x180
++#define CSR_HVTVAL 0x1c0
++#define CSR_HSTATUS 0x1c1
++#define CSR_BSSTATUS 0x900
++#define CSR_BSIE 0x904
++#define CSR_BSTVEC 0x905
++#define CSR_BSSCRATCH 0x940
++#define CSR_BSEPC 0x941
++#define CSR_BSCAUSE 0x942
++#define CSR_BSTVAL 0x943
++#define CSR_BSIP 0x944
++#define CSR_BSATP 0x980
+ #define CSR_MSTATUS 0x300
+ #define CSR_MISA 0x301
+ #define CSR_MEDELEG 0x302
+@@ -1029,6 +1040,17 @@ DECLARE_CSR(scause, CSR_SCAUSE)
+ DECLARE_CSR(sbadaddr, CSR_SBADADDR)
+ DECLARE_CSR(sip, CSR_SIP)
+ DECLARE_CSR(satp, CSR_SATP)
++DECLARE_CSR(hvtval, CSR_HVTVAL)
++DECLARE_CSR(hstatus, CSR_HSTATUS)
++DECLARE_CSR(bsstatus, CSR_BSSTATUS)
++DECLARE_CSR(bsip, CSR_BSIP)
++DECLARE_CSR(bsie, CSR_BSIE)
++DECLARE_CSR(bstvec, CSR_BSTVEC)
++DECLARE_CSR(bsscratch, CSR_BSSCRATCH)
++DECLARE_CSR(bsepc, CSR_BSEPC)
++DECLARE_CSR(bscause, CSR_BSCAUSE)
++DECLARE_CSR(bstval, CSR_BSTVAL)
++DECLARE_CSR(bsatp, CSR_BSATP)
+ DECLARE_CSR(mstatus, CSR_MSTATUS)
+ DECLARE_CSR(misa, CSR_MISA)
+ DECLARE_CSR(medeleg, CSR_MEDELEG)
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index 1589e0a..cc83e42 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -21,10 +21,12 @@
+ #define RVC RV('C')
+ #define RVS RV('S')
+ #define RVU RV('U')
++#define RVH RV('H')
+ 
+ #define USER_VERSION_2_02_0 0x00020200
+ #define PRIV_VERSION_1_09_1 0x00010901
+ #define PRIV_VERSION_1_10_0 0x00011000
++#define PRIV_VERSION_1_11_0 0x00011100
+ 
+ #define TARGET_HAS_ICE 1
+ #define ELF_MACHINE EM_RISCV
+-- 
+2.7.4
+

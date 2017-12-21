@@ -1,0 +1,31 @@
+From e39bc99457d2a4af75c01b9694f53f7bca8e2320 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 21 Dec 2017 20:27:37 +0800
+Subject: [PATCH 7/7] fix one typo
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/helper.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index 799d99b..fc6fe8b 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -74,11 +74,11 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
+         }
+     }
+     if (env->priv_ver >= PRIV_VERSION_1_10_0) {
+-        if (get_field(env->satp, SATP_MODE) == VM_1_09_MBARE) {
++        if (get_field(env->satp, SATP_MODE) == VM_1_10_MBARE) {
+             mode = PRV_M;
+         }
+     } else {
+-        if (get_field(env->mstatus, MSTATUS_VM) == VM_1_10_MBARE) {
++        if (get_field(env->mstatus, MSTATUS_VM) == VM_1_09_MBARE) {
+             mode = PRV_M;
+         }
+     }
+-- 
+2.7.4
+

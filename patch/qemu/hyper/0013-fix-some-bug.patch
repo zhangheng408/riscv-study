@@ -1,0 +1,131 @@
+From 53a18c930d7d532fcd51f474768931ae43d3c16e Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Wed, 20 Dec 2017 20:48:25 +0800
+Subject: [PATCH 13/16] fix some bug
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/disas/riscv-opc.h |  2 ++
+ target-riscv/cpu.h        |  7 +++++--
+ target-riscv/op_helper.c  | 18 +++++++++++-------
+ 3 files changed, 18 insertions(+), 9 deletions(-)
+
+diff --git a/include/disas/riscv-opc.h b/include/disas/riscv-opc.h
+index fb7febf..3757656 100644
+--- a/include/disas/riscv-opc.h
++++ b/include/disas/riscv-opc.h
+@@ -551,6 +551,8 @@
+ #define CSR_SATP 0x180
+ #define CSR_HVTVAL 0x9c0
+ #define CSR_HSTATUS 0x9c1
++#define CSR_HEDELEG 0x9c2
++#define CSR_HIDELEG 0x9c3
+ #define CSR_BSSTATUS 0x900
+ #define CSR_BSIE 0x904
+ #define CSR_BSTVEC 0x905
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index cc83e42..9eaaf47 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -155,6 +155,7 @@ typedef struct CPURISCVState {
+     pmp_table_t pmp_state;
+ 
+     /* hypervisor support*/
++
+     /*
+      * virutalization mode
+      */
+@@ -162,8 +163,9 @@ typedef struct CPURISCVState {
+     /* 
+      * hold the original virtual address,
+      * when an access fault, page fault, or misaligned address exception.
+-     * */
+-    target_ulong htval;
++     */
++    target_ulong mvtval;
++    target_ulong hvtval;
+     /*
+      * [17]SPRV/[20]VTVM... is conflict to mstatus
+      * temporary add a new reg
+@@ -207,6 +209,7 @@ typedef struct CPURISCVState {
+      * Background Supervisor Address Translation and Protection Register
+      */
+     target_ulong bsatp;
++    /* end hypervisor csr*/
+ #endif
+ 
+     float_status fp_status;
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index 2896e22..1abcb1c 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -298,25 +298,27 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
+     case CSR_HVTVAL:
+         env->hvtval = val_to_write;
+         break;
+-    case CSR_HSTATUS:
++    case CSR_HSTATUS:{
+         target_ulong mask = HSTATUS_VTSR | HSTATUS_VTW | HSTATUS_VTVM
+             | HSTATUS_SPRV | HSTATUS_SPV | HSTATUS_STL;
+         env->hstatus = val_to_write & mask;
+         break;
++    }
+     case CSR_HEDELEG:
+         env->hedeleg = val_to_write;
+         break;
+     case CSR_HIDELEG:
+         env->hideleg = val_to_write;
+         break;
+-    case CSR_BSSTATUS:
++    case CSR_BSSTATUS: {
+         target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP
+             | SSTATUS_FS | SSTATUS_SUM |  SSTATUS_MXR;
+ #if defined (TARGET_RISCV64)
+-        mask | = SSTATUS64_UXL;
++        mask |= SSTATUS64_UXL;
+ #endif
+         env->bsstatus = val_to_write & mask;
+         break;
++    }
+     case CSR_BSIP:
+         env->bsip = val_to_write;
+         break;
+@@ -550,21 +552,23 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
+      */
+     case CSR_HVTVAL:
+         return env->hvtval;
+-    case CSR_HSTATUS:
++    case CSR_HSTATUS: {
+         target_ulong mask = HSTATUS_VTSR | HSTATUS_VTW | HSTATUS_VTVM
+             | HSTATUS_SPRV | HSTATUS_SPV | HSTATUS_STL;
+         return env->hstatus & mask;
++    }
+     case CSR_HEDELEG:
+         return env->hedeleg;
+     case CSR_HIDELEG:
+         return env->hideleg;
+-    case CSR_BSSTATUS:
++    case CSR_BSSTATUS: {
+         target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP
+             | SSTATUS_FS | SSTATUS_SUM |  SSTATUS_MXR;
+ #if defined (TARGET_RISCV64)
+-        mask | = SSTATUS64_UXL;
++        mask |= SSTATUS64_UXL;
+ #endif
+         return env->bsstatus & mask;
++    }
+     case CSR_BSIP:
+         return env->bsip;
+     case CSR_BSIE:
+@@ -678,7 +682,7 @@ void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write)
+     unsigned csr_read_only = get_field((which), 0xC00) == 3;
+     unsigned csr_vm = csr_priv == PRV_S && get_field((which), 0xC00) == 2;
+     if (((write) && csr_read_only) || (env->priv < csr_priv)
+-            || env->vm && csr_vm) {
++            || (env->vm && csr_vm)) {
+         do_raise_exception_err(env, RISCV_EXCP_ILLEGAL_INST, env->pc);
+     }
+ #endif
+-- 
+2.7.4
+

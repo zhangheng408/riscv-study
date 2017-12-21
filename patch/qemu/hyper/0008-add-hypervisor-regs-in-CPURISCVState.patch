@@ -1,0 +1,78 @@
+From f7bb0dd0f6a2269fbd2d04dc75d1ab710a0d70a8 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Wed, 20 Dec 2017 15:20:59 +0800
+Subject: [PATCH 08/16] add hypervisor regs in CPURISCVState
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/cpu.h | 54 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 54 insertions(+)
+
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index 37dbc97..1589e0a 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -151,6 +151,60 @@ typedef struct CPURISCVState {
+ 
+     /* physical memory protection */
+     pmp_table_t pmp_state;
++
++    /* hypervisor support*/
++    /*
++     * virutalization mode
++     */
++    target_ulong vm;
++    /*
++     * hold the original virtual address,
++     * when an access fault, page fault, or misaligned address exception.
++     * */
++    target_ulong htval;
++    /*
++     * [17]SPRV/[20]VTVM... is conflict to mstatus
++     * temporary add a new reg
++     */
++    target_ulong hstatus;
++    /*
++     * Hypervisor Trap Delegation Registers
++     */
++    target_ulong hedeleg;
++    target_ulong hideleg;
++    /*
++     * Background Supervisor Status
++     */
++    target_ulong bsstatus;
++    /*
++     * Background Supervisor Interrupt Registers
++     */
++    target_ulong bsip;
++    target_ulong bsie;
++    /*
++     * Background Supervisor Trap Vector Base Address Register
++     */
++    target_ulong bstvec;
++    /*
++     * Background Supervisor Scratch Register
++     */
++    target_ulong bsscratch;
++    /*
++     * Background Supervisor Exception Program Counter
++     */
++    target_ulong bsepc;
++    /*
++     * Background Supervisor Cause Register
++     */
++    target_ulong bscause;
++    /*
++     * Background Supervisor Trap Value Register
++     */
++    target_ulong bstval;
++    /*
++     * Background Supervisor Address Translation and Protection Register
++     */
++    target_ulong bsatp;
+ #endif
+ 
+     float_status fp_status;
+-- 
+2.7.4
+

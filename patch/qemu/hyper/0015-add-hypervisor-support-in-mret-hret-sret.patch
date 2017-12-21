@@ -1,0 +1,161 @@
+From 37b11a71db38239b454a4346356def442b329da2 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 21 Dec 2017 16:03:20 +0800
+Subject: [PATCH 15/16] add hypervisor support in mret/hret/sret
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/cpu.h       |  1 +
+ target-riscv/helper.h    |  1 +
+ target-riscv/op_helper.c | 73 ++++++++++++++++++++++++++++++++++++++++++++++++
+ target-riscv/translate.c |  5 ++--
+ 4 files changed, 78 insertions(+), 2 deletions(-)
+
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index d46a1d8..1f0457d 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -318,6 +318,7 @@ void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
+ #define cpu_list riscv_cpu_list
+ 
+ void set_privilege(CPURISCVState *env, target_ulong newpriv);
++void swap_background_background_csrs(CPURISCVState *env);
+ unsigned int softfloat_flags_to_riscv(unsigned int flag);
+ uint_fast16_t float32_classify(uint32_t a, float_status *status);
+ uint_fast16_t float64_classify(uint64_t a, float_status *status);
+diff --git a/target-riscv/helper.h b/target-riscv/helper.h
+index 60f04a2..77385c4 100644
+--- a/target-riscv/helper.h
++++ b/target-riscv/helper.h
+@@ -71,6 +71,7 @@ DEF_HELPER_4(csrrs, tl, env, tl, tl, tl)
+ DEF_HELPER_4(csrrc, tl, env, tl, tl, tl)
+ #ifndef CONFIG_USER_ONLY
+ DEF_HELPER_2(sret, tl, env, tl)
++DEF_HELPER_2(hret, tl, env, tl)
+ DEF_HELPER_2(mret, tl, env, tl)
+ DEF_HELPER_1(wfi, void, env)
+ DEF_HELPER_1(tlb_flush, void, env)
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index 1abcb1c..baf6663 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -734,6 +734,28 @@ void set_privilege(CPURISCVState *env, target_ulong newpriv)
+     env->priv = newpriv;
+ }
+ 
++#define swap_background_background_csr(env, csr_no)                     \
++    do{                                                                 \
++        target_ulong backup_csr;                                        \
++        backup_csr = csr_read_helper(env, CSR_##csr_no);                \
++        backup_csr = helper_csrrw(env, backup_csr, CSR_B##csr_no);      \
++        csr_write_helper(env, backup_csr, CSR_##csr_no);                \
++    }while(0);
++
++
++void swap_background_background_csrs(CPURISCVState *env){
++    swap_background_background_csr(env, SSTATUS);
++    swap_background_background_csr(env, SIP);
++    swap_background_background_csr(env, SIP);
++    swap_background_background_csr(env, SIE);
++    swap_background_background_csr(env, STVEC);
++    swap_background_background_csr(env, SSCRATCH);
++    swap_background_background_csr(env, SEPC);
++    swap_background_background_csr(env, SCAUSE);
++    swap_background_background_csr(env, STVAL);
++    swap_background_background_csr(env, SATP);
++}
++
+ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
+ {
+     if (!(env->priv >= PRV_S)) {
+@@ -754,6 +776,48 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
+     set_privilege(env, prev_priv);
+     csr_write_helper(env, mstatus, CSR_MSTATUS);
+ 
++    if (env->vm == 0) {
++        target_ulong hstatus = env->hstatus;
++        target_ulong prev_vm = get_field(hstatus, HSTATUS_SPV);
++        if (prev_vm) {
++            swap_background_background_csrs(env);
++            env->vm = 1;
++            hstatus = set_field(hstatus, HSTATUS_SPV, 0);
++            csr_write_helper(env, hstatus, CSR_HSTATUS);
++        }
++    }
++
++    return retpc;
++}
++
++target_ulong helper_hret(CPURISCVState *env, target_ulong cpu_pc_deb)
++{
++    if (env->priv > PRV_S
++            || (env->priv == PRV_S && (env->vm || env->mstatus & MSTATUS_TSR))) {
++        helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
++    }
++
++    target_ulong retpc = env->sepc;
++    if (!riscv_feature(env, RISCV_FEATURE_RVC) && (retpc & 0x3)) {
++        helper_raise_exception(env, RISCV_EXCP_INST_ADDR_MIS);
++    }
++
++    target_ulong mstatus = env->mstatus;
++    target_ulong prev_priv = get_field(mstatus, MSTATUS_SPP);
++    mstatus = set_field(mstatus, MSTATUS_SIE,
++                        get_field(mstatus, MSTATUS_SPIE));
++    mstatus = set_field(mstatus, MSTATUS_SPIE, 1);
++    mstatus = set_field(mstatus, MSTATUS_SPP, PRV_U);
++    set_privilege(env, prev_priv);
++    csr_write_helper(env, mstatus, CSR_MSTATUS);
++
++    /*
++     * must return from HS/M(V==0) to S/U(V==1)
++     * no need to set hstatus.spv, it's remains 0.
++     */
++    swap_background_background_csrs(env);
++    env->vm = 1;
++
+     return retpc;
+ }
+ 
+@@ -770,13 +834,22 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
+ 
+     target_ulong mstatus = env->mstatus;
+     target_ulong prev_priv = get_field(mstatus, MSTATUS_MPP);
++    target_ulong prev_vm = get_field(mstatus, MSTATUS_MPV);
+     mstatus = set_field(mstatus, MSTATUS_MIE,
+                         get_field(mstatus, MSTATUS_MPIE));
+     mstatus = set_field(mstatus, MSTATUS_MPIE, 1);
+     mstatus = set_field(mstatus, MSTATUS_MPP, PRV_U);
++    mstatus = set_field(mstatus, MSTATUS_MPV, 0);
+     set_privilege(env, prev_priv);
+     csr_write_helper(env, mstatus, CSR_MSTATUS);
+ 
++    if (prev_priv < PRV_M) {
++        if (prev_vm) {//env->vm cannot be 1(virtualization mode) in now priv(M)
++            swap_background_background_csrs(env);
++        }
++        env->vm = prev_vm;
++    }
++
+     return retpc;
+ }
+ 
+diff --git a/target-riscv/translate.c b/target-riscv/translate.c
+index b8e0200..c6d153e 100644
+--- a/target-riscv/translate.c
++++ b/target-riscv/translate.c
+@@ -1379,8 +1379,9 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
+             ctx->bstate = BS_BRANCH;
+             break;
+         case 0x202: /* HRET */
+-            printf("HRET unimplemented\n");
+-            exit(1);
++            gen_helper_hret(cpu_pc, cpu_env, cpu_pc);
++            tcg_gen_exit_tb(0); /* no chaining */
++            ctx->bstate = BS_BRANCH;
+             break;
+         case 0x302: /* MRET */
+             gen_helper_mret(cpu_pc, cpu_env, cpu_pc);
+-- 
+2.7.4
+

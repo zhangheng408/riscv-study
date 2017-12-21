@@ -1,0 +1,28 @@
+From 7cf1ad9ae3dea988b0c26d8ccb1a871ebdc1ddb5 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Wed, 20 Dec 2017 16:23:37 +0800
+Subject: [PATCH 6/6] fix cpu bits bug in mstatus
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/cpu_bits.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/target-riscv/cpu_bits.h b/target-riscv/cpu_bits.h
+index 7368610..c2d3740 100644
+--- a/target-riscv/cpu_bits.h
++++ b/target-riscv/cpu_bits.h
+@@ -56,8 +56,8 @@
+ #define MSTATUS_MXR         0x00080000
+ #define MSTATUS_VM          0x1F000000 /* until: priv-1.9.1 */
+ #define MSTATUS_TVM         0x00100000 /* since: priv-1.10 */
+-#define MSTATUS_TW          0x20000000 /* since: priv-1.10 */
+-#define MSTATUS_TSR         0x40000000 /* since: priv-1.10 */
++#define MSTATUS_TW          0x00200000 /* since: priv-1.10 */
++#define MSTATUS_TSR         0x00400000 /* since: priv-1.10 */
+ 
+ #define MSTATUS64_UXL       0x0000000300000000
+ #define MSTATUS64_SXL       0x0000000C00000000
+-- 
+2.7.4
+

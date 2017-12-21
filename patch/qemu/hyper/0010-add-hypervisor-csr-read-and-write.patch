@@ -1,0 +1,145 @@
+From 42023c9282cfaf9274e195a2d82468df8eabf62f Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Wed, 20 Dec 2017 16:53:39 +0800
+Subject: [PATCH 10/16] add hypervisor csr read and write
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/cpu_bits.h  |  8 +++++
+ target-riscv/op_helper.c | 87 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 95 insertions(+)
+
+diff --git a/target-riscv/cpu_bits.h b/target-riscv/cpu_bits.h
+index c2d3740..c928d74 100644
+--- a/target-riscv/cpu_bits.h
++++ b/target-riscv/cpu_bits.h
+@@ -84,6 +84,7 @@
+ 
+ #define SSTATUS32_SD        0x80000000
+ #define SSTATUS64_SD        0x8000000000000000
++#define SSTATUS64_UXL       0x0000000300000000
+ 
+ #if defined (TARGET_RISCV32)
+ #define SSTATUS_SD SSTATUS32_SD
+@@ -91,6 +92,13 @@
+ #define SSTATUS_SD SSTATUS64_SD
+ #endif
+ 
++#define HSTATUS_VTSR         0x00400000
++#define HSTATUS_VTW          0x00200000
++#define HSTATUS_VTVM         0x00100000
++#define HSTATUS_SPRV         0x00020000
++#define HSTATUS_SPV          0x00000400
++#define HSTATUS_STL          0x00000200
++
+ #define MIP_SSIP            (1 << IRQ_S_SOFT)
+ #define MIP_HSIP            (1 << IRQ_H_SOFT)
+ #define MIP_MSIP            (1 << IRQ_M_SOFT)
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index fe45094..4aa71ad 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -292,6 +292,56 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
+     case CSR_SBADADDR:
+         env->sbadaddr = val_to_write;
+         break;
++    /*
++     * hypervisor support
++     */
++    case CSR_HVTVAL:
++        env->hvtval = val_to_write;
++        break;
++    case CSR_HSTATUS:
++        target_ulong mask = HSTATUS_VTSR | HSTATUS_VTW | HSTATUS_VTVM
++            | HSTATUS_SPRV | HSTATUS_SPV | HSTATUS_STL;
++        env->hstatus = val_to_write & mask;
++        break;
++    case CSR_HEDELEG:
++        env->hedeleg = val_to_write;
++        break;
++    case CSR_HIDELEG:
++        env->hideleg = val_to_write;
++        break;
++    case CSR_BSSTATUS:
++        target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP
++            | SSTATUS_FS | SSTATUS_SUM |  SSTATUS_MXR;
++#if defined (TARGET_RISCV64)
++        mask | = SSTATUS64_UXL;
++#endif
++        env->bsstatus = val_to_write & mask;
++        break;
++    case CSR_BSIP:
++        env->bsip = val_to_write;
++        break;
++    case CSR_BSIE:
++        env->bsie = val_to_write;
++        break;
++    case CSR_BSTVEC:
++        env->bstvec = val_to_write;
++        break;
++    case CSR_BSSCRATCH:
++        env->bsscratch = val_to_write;
++        break;
++    case CSR_BSEPC:
++        env->bsepc = val_to_write;
++        break;
++    case CSR_BSCAUSE:
++        env->bscause = val_to_write;
++        break;
++    case CSR_BSTVAL:
++        env->bstval = val_to_write;
++        break;
++    case CSR_BSATP:
++        env->bsatp = val_to_write;
++        break;
++    /* end hypervisor */
+     case CSR_MEPC:
+         env->mepc = val_to_write;
+         break;
+@@ -492,6 +542,43 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
+         }
+     case CSR_SSCRATCH:
+         return env->sscratch;
++    /*
++     * hypervisor support
++     */
++    case CSR_HVTVAL:
++        return env->hvtval;
++    case CSR_HSTATUS:
++        target_ulong mask = HSTATUS_VTSR | HSTATUS_VTW | HSTATUS_VTVM
++            | HSTATUS_SPRV | HSTATUS_SPV | HSTATUS_STL;
++        return env->hstatus & mask;
++    case CSR_HEDELEG:
++        return env->hedeleg;
++    case CSR_HIDELEG:
++        return env->hideleg;
++    case CSR_BSSTATUS:
++        target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP
++            | SSTATUS_FS | SSTATUS_SUM |  SSTATUS_MXR;
++#if defined (TARGET_RISCV64)
++        mask | = SSTATUS64_UXL;
++#endif
++        return env->bsstatus & mask;
++    case CSR_BSIP:
++        return env->bsip;
++    case CSR_BSIE:
++        return env->bsie;
++    case CSR_BSTVEC:
++        return env->bstvec;
++    case CSR_BSSCRATCH:
++        return env->bsscratch;
++    case CSR_BSEPC:
++        return env->bsepc;
++    case CSR_BSCAUSE:
++        return env->bscause;
++    case CSR_BSTVAL:
++        return env->bstval;
++    case CSR_BSATP:
++        return env->bsatp;
++    /* end hypervisor */
+     case CSR_MSTATUS:
+         return env->mstatus;
+     case CSR_MIP:
+-- 
+2.7.4
+

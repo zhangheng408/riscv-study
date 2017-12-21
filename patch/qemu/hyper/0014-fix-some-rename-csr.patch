@@ -1,0 +1,69 @@
+From feec5ed311f2e23dc610b6ff97a29143ef7eed05 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Wed, 20 Dec 2017 20:56:32 +0800
+Subject: [PATCH 14/16] fix some rename csr
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/disas/riscv-opc.h |  2 ++
+ target-riscv/cpu.h        | 17 ++++++++++++-----
+ 2 files changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/include/disas/riscv-opc.h b/include/disas/riscv-opc.h
+index 3757656..4563ed2 100644
+--- a/include/disas/riscv-opc.h
++++ b/include/disas/riscv-opc.h
+@@ -546,6 +546,7 @@
+ #define CSR_SEPC 0x141
+ #define CSR_SCAUSE 0x142
+ #define CSR_SBADADDR 0x143
++#define CSR_STVAL 0x143
+ #define CSR_SIP 0x144
+ #define CSR_SPTBR 0x180
+ #define CSR_SATP 0x180
+@@ -573,6 +574,7 @@
+ #define CSR_MEPC 0x341
+ #define CSR_MCAUSE 0x342
+ #define CSR_MBADADDR 0x343
++#define CSR_MTVAL 0x343
+ #define CSR_MIP 0x344
+ #define CSR_MVTVAL 0x345
+ #define CSR_PMPCFG0 0x3a0
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index 9eaaf47..d46a1d8 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -121,10 +121,18 @@ typedef struct CPURISCVState {
+     target_ulong mie;
+     target_ulong mideleg;
+ 
+-    target_ulong sptbr;  /* until: priv-1.9.1 */
+-    target_ulong satp;   /* since: priv-1.10.0 */
+-    target_ulong sbadaddr;
+-    target_ulong mbadaddr;
++    union{
++        target_ulong sptbr;  /* until: priv-1.9.1 */
++        target_ulong satp;   /* since: priv-1.10.0 */
++    };
++    union{
++        target_ulong sbadaddr;/* until: priv-1.9.1 */
++        target_ulong stval;/* since: priv-1.10.0 */
++    };
++    union{
++        target_ulong mbadaddr;/* until: priv-1.9.1 */
++        target_ulong mtval;/* since: priv-1.10.0 */
++    };
+     target_ulong medeleg;
+ 
+     target_ulong stvec;
+@@ -134,7 +142,6 @@ typedef struct CPURISCVState {
+     target_ulong mtvec;
+     target_ulong mepc;
+     target_ulong mcause;
+-    target_ulong mtval;  /* since: priv-1.10.0 */
+ 
+     uint32_t mscounteren;
+     target_ulong scounteren; /* since: priv-1.10.0 */
+-- 
+2.7.4
+
