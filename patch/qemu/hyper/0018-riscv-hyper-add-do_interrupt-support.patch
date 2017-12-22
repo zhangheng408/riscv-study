@@ -1,0 +1,58 @@
+From cce1bcb8302bc5312ef7ed80b8b6b27f51efa408 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Fri, 22 Dec 2017 17:46:40 +0800
+Subject: [PATCH 18/19] riscv-hyper: add do_interrupt support
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/helper.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index 007bb81..9499f1d 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -574,6 +574,13 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         deleg = env->mideleg, bit &= ~((target_ulong)1 << (TARGET_LONG_BITS - 1));
+     }
+ 
++    target_ulong hdeleg = fixed_cause & ((target_ulong)1 << (TARGET_LONG_BITS - 1))?
++            env->hideleg : env->hedeleg;
++    if (env->vm == 1 && !((hdeleg >> bit) & 1)) {
++        /* trap from virtual machine and not handled int VM*/
++        swap_background_background_csrs(env);
++    }
++
+     if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
+         /* handle the trap in S-mode */
+         /* No need to check STVEC for misaligned - lower 2 bits cannot be set */
+@@ -594,7 +601,16 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         s = set_field(s, MSTATUS_SPP, env->priv);
+         s = set_field(s, MSTATUS_SIE, 0);
+         csr_write_helper(env, s, CSR_MSTATUS);
++        s = env->hstatus;
++        s = set_field(s, HSTATUS_SPV, env->vm);
++        csr_write_helper(env, s, CSR_HSTATUS);
+         set_privilege(env, PRV_S);
++
++        if (env->vm == 1 && ((hdeleg >> bit) & 1)) {
++            env->pc = get_host_physical_address(env, env->pc);
++        } else {
++            env->vm = 0;
++        }
+     } else {
+         /* No need to check MTVEC for misaligned - lower 2 bits cannot be set */
+         env->pc = env->mtvec;
+@@ -613,7 +629,9 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         s = set_field(s, MSTATUS_MPIE, get_field(s, MSTATUS_MIE));
+         s = set_field(s, MSTATUS_MPP, env->priv);
+         s = set_field(s, MSTATUS_MIE, 0);
++        s = set_field(s, MSTATUS_MPV, env->vm);
+         csr_write_helper(env, s, CSR_MSTATUS);
++        env->vm = 0;
+         set_privilege(env, PRV_M);
+     }
+ 
+-- 
+2.7.4
+

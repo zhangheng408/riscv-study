@@ -1,0 +1,231 @@
+From 43c06c931fd0ad1bc29d3b1e88d47f2fad78d532 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Fri, 22 Dec 2017 16:05:51 +0800
+Subject: [PATCH 17/19] riscv-hyper: add two level address translation
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+
+hvtval/mvtval is used to store host page fault virtual address(guest
+physical address), instead of original virtual address(guest virtual address).
+---
+ target-riscv/cpu.h    |  12 ++---
+ target-riscv/helper.c | 121 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 128 insertions(+), 5 deletions(-)
+
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index af7719e..de35f3b 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -67,8 +67,10 @@
+ #define RISCV_EXCP_M_ECALL                 0xb
+ #define RISCV_EXCP_INST_PAGE_FAULT         0xc /* since: priv-1.10.0 */
+ #define RISCV_EXCP_LOAD_PAGE_FAULT         0xd /* since: priv-1.10.0 */
++#define RISCV_EXCP_HOST_PAGE_FAULT         0xe /* since: priv-1.11.0 */
+ #define RISCV_EXCP_STORE_PAGE_FAULT        0xf /* since: priv-1.10.0 */
+ 
++#define TRANSLATE_HOST_FAIL 2
+ #define TRANSLATE_FAIL 1
+ #define TRANSLATE_SUCCESS 0
+ #define NB_MMU_MODES 4
+@@ -99,7 +101,11 @@ typedef struct CPURISCVState {
+     target_ulong fstatus;
+     target_ulong fflags;
+ 
+-    target_ulong badaddr;
++    union{
++        target_ulong badaddr;
++        target_ulong mbadaddr;  /* until: priv-1.9.1 */
++        target_ulong mtval;   /* since: priv-1.10.0 */
++    };
+ 
+     uint32_t mucounteren;
+ 
+@@ -129,10 +135,6 @@ typedef struct CPURISCVState {
+         target_ulong sbadaddr;/* until: priv-1.9.1 */
+         target_ulong stval;/* since: priv-1.10.0 */
+     };
+-    union{
+-        target_ulong mbadaddr;/* until: priv-1.9.1 */
+-        target_ulong mtval;/* since: priv-1.10.0 */
+-    };
+     target_ulong medeleg;
+ 
+     target_ulong stvec;
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index b2f67aa..007bb81 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -48,6 +48,93 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+ 
+ #if !defined(CONFIG_USER_ONLY)
+ 
++/* get_host_physical_address -- get host physical address
++ *
++ * no need for param access_type and mmu_idx.
++ * they must be MMU_DATA_LOAD and PRV_U.
++ *
++ * directly return host physical address.
++ * no need for tanslation success flags.
++ * raise exception when failing.
++ */
++static target_ulong get_host_physical_address(CPURISCVState *env,
++        target_ulong address)
++{
++    if (get_field(env->bsatp, SATP_MODE) == VM_1_10_MBARE) {
++        return address;
++    }
++
++    CPUState *cs = CPU(riscv_env_get_cpu(env));
++    target_ulong addr = address;
++    target_ulong base;
++    target_ulong mode = PRV_U;
++    target_ulong access_type = MMU_DATA_LOAD;
++    int levels, ptidxbits, ptesize, vm, sum;
++    int mxr = get_field(env->mstatus, MSTATUS_MXR);
++
++    base = get_field(env->bsatp, SATP_PPN) << PGSHIFT;
++    sum = get_field(env->mstatus, MSTATUS_SUM);
++    vm = get_field(env->bsatp, SATP_MODE);
++    switch (vm) {
++        case VM_1_10_SV32:
++            levels = 2; ptidxbits = 10; ptesize = 4; break;
++        case VM_1_10_SV39:
++            levels = 3; ptidxbits = 9; ptesize = 8; break;
++        case VM_1_10_SV48:
++            levels = 4; ptidxbits = 9; ptesize = 8; break;
++        case VM_1_10_SV57:
++            levels = 5; ptidxbits = 9; ptesize = 8; break;
++        default:
++            printf("unsupported SATP_MODE value\n");
++            exit(1);
++    }
++
++    int va_bits = PGSHIFT + levels * ptidxbits;
++    target_ulong mask = (1L << (TARGET_LONG_BITS - (va_bits - 1))) - 1;
++    target_ulong masked_msbs = (addr >> (va_bits - 1)) & mask;
++    if (masked_msbs != 0 && masked_msbs != mask) {
++        env->mvtval = env->hvtval = addr;
++        return TRANSLATE_FAIL;
++    }
++
++    int ptshift = (levels - 1) * ptidxbits;
++    int i;
++    for (i = 0; i < levels; i++, ptshift -= ptidxbits) {
++        target_ulong idx = (addr >> (PGSHIFT + ptshift)) &
++                           ((1 << ptidxbits) - 1);
++
++        /* check that physical address of PTE is legal */
++        target_ulong pte_addr = base + idx * ptesize;
++        target_ulong pte = ldq_phys(cs->as, pte_addr);
++        target_ulong ppn = pte >> PTE_PPN_SHIFT;
++
++        env->mvtval = env->hvtval = pte_addr;
++        if (PTE_TABLE(pte)) { /* next level of page table */
++            base = ppn << PGSHIFT;
++        } else if ((pte & PTE_U) ? (mode == PRV_S) && (!sum) : !(mode == PRV_S)) {
++            break;
++        } else if (!(pte & PTE_V) || (!(pte & PTE_R) && (pte & PTE_W))) {
++            break;
++        } else if (access_type == MMU_INST_FETCH ? !(pte & PTE_X) :
++                  access_type == MMU_DATA_LOAD ?  !(pte & PTE_R) &&
++                  !(mxr && (pte & PTE_X)) : !((pte & PTE_R) && (pte & PTE_W))) {
++            break;
++        } else {
++            /* set accessed and possibly dirty bits.
++               we only put it in the TLB if it has the right stuff */
++            stq_phys(cs->as, pte_addr, ldq_phys(cs->as, pte_addr) | PTE_A |
++                    ((access_type == MMU_DATA_STORE) * PTE_D));
++
++            env->mvtval = env->hvtval = 0;
++            /* for superpage mappings, make a fake leaf PTE for the TLB's
++               benefit. */
++            target_ulong vpn = addr >> PGSHIFT;
++            return (ppn | (vpn & ((1L << ptshift) - 1))) << PGSHIFT;
++        }
++    }
++    return 0;
++}
++
+ /* get_physical_address - get the physical address for this virtual address
+  *
+  * Do a page table walk to obtain the physical address corresponding to a
+@@ -68,14 +155,27 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
+     CPUState *cs = CPU(riscv_env_get_cpu(env));
+ 
+     target_ulong mode = env->priv;
++    target_ulong virt_mode = env->vm;
++
+     if (access_type != MMU_INST_FETCH) {
+         if (get_field(env->mstatus, MSTATUS_MPRV)) {
+             mode = get_field(env->mstatus, MSTATUS_MPP);
++            virt_mode = get_field(env->mstatus, MSTATUS_MPV);
++        }
++        if(mode != PRV_M && get_field(env->hstatus, HSTATUS_SPRV) == 1){
++            mode = get_field(env->mstatus, SSTATUS_SPP);
++            virt_mode = get_field(env->hstatus, HSTATUS_SPV);
+         }
+     }
+     if (env->priv_ver >= PRIV_VERSION_1_10_0) {
+         if (get_field(env->satp, SATP_MODE) == VM_1_10_MBARE) {
+             mode = PRV_M;
++            if (virt_mode == 1) {
++                address = get_host_physical_address(env, address);
++                if (address == 0) {
++                    return TRANSLATE_HOST_FAIL;
++                }
++            }
+         }
+     } else {
+         if (get_field(env->mstatus, MSTATUS_VM) == VM_1_09_MBARE) {
+@@ -105,6 +205,12 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
+ 
+     if (env->priv_ver >= PRIV_VERSION_1_10_0) {
+         base = get_field(env->satp, SATP_PPN) << PGSHIFT;
++        if (virt_mode == 1) {
++            base = get_host_physical_address(env, base);
++            if (base == 0) {
++                return TRANSLATE_HOST_FAIL;
++            }
++        }
+         sum = get_field(env->mstatus, MSTATUS_SUM);
+         vm = get_field(env->satp, SATP_MODE);
+         switch (vm) {
+@@ -152,6 +258,12 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
+ 
+         /* check that physical address of PTE is legal */
+         target_ulong pte_addr = base + idx * ptesize;
++        if (virt_mode == 1) {
++            pte_addr = get_host_physical_address(env, pte_addr);
++            if (pte_addr == 0) {
++                return TRANSLATE_HOST_FAIL;
++            }
++        }
+         target_ulong pte = ldq_phys(cs->as, pte_addr);
+         target_ulong ppn = pte >> PTE_PPN_SHIFT;
+ 
+@@ -175,6 +287,12 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
+                benefit. */
+             target_ulong vpn = addr >> PGSHIFT;
+             *physical = (ppn | (vpn & ((1L << ptshift) - 1))) << PGSHIFT;
++            if (virt_mode == 1) {
++                *physical = get_host_physical_address(env, *physical);
++                if (*physical == 0) {
++                    return TRANSLATE_HOST_FAIL;
++                }
++            }
+ 
+             /* we do not give all prots indicated by the PTE
+              * this is because future accesses need to do things like set the
+@@ -328,6 +446,9 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
+                      prot, mmu_idx, TARGET_PAGE_SIZE);
+     } else if (ret == TRANSLATE_FAIL) {
+         raise_mmu_exception(env, address, access_type);
++    } else if (ret == TRANSLATE_HOST_FAIL) {
++        cs->exception_index = RISCV_EXCP_HOST_PAGE_FAULT;
++        env->badaddr = address;
+     }
+ #else
+     cs->exception_index = QEMU_USER_EXCP_FAULT;
+-- 
+2.7.4
+
