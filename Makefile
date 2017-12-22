@@ -114,7 +114,7 @@ linux-new:
 linux-update:
 	@echo "clean git dir ..."
 	@cd $(DIR_LINUX);								\
-		git clean -qndif;							\
+		git clean -qndf;							\
 		git checkout -f $(LINUX_BASE)
 	@echo "apply linux patch ..."
 	@cd $(DIR_LINUX);								\
@@ -178,7 +178,7 @@ pk-make:
 qemu-update:
 	@echo "clean git dir ..."
 	@cd $(DIR_QEMU);								\
-		git clean -qndif;							\
+		git clean -qndf;							\
 		git checkout -f $(QEMU_BASE)
 	@echo "apply qemu patch ..."
 	@cd $(DIR_QEMU);								\
