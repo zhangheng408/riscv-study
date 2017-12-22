@@ -1,7 +1,7 @@
-From 53a18c930d7d532fcd51f474768931ae43d3c16e Mon Sep 17 00:00:00 2001
+From 9ff551660f231765da817697a238216684205fee Mon Sep 17 00:00:00 2001
 From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
-Date: Wed, 20 Dec 2017 20:48:25 +0800
-Subject: [PATCH 13/16] fix some bug
+Date: Fri, 22 Dec 2017 21:48:36 +0800
+Subject: [PATCH 13/13] fix some bug
 
 Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
 ---
@@ -24,7 +24,7 @@ index fb7febf..3757656 100644
  #define CSR_BSIE 0x904
  #define CSR_BSTVEC 0x905
 diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
-index cc83e42..9eaaf47 100644
+index aca744c..fe0c596 100644
 --- a/target-riscv/cpu.h
 +++ b/target-riscv/cpu.h
 @@ -155,6 +155,7 @@ typedef struct CPURISCVState {
@@ -36,7 +36,7 @@ index cc83e42..9eaaf47 100644
       * virutalization mode
       */
 @@ -162,8 +163,9 @@ typedef struct CPURISCVState {
-     /* 
+     /*
       * hold the original virtual address,
       * when an access fault, page fault, or misaligned address exception.
 -     * */

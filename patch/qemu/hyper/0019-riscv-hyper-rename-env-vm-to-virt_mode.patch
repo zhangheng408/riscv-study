@@ -1,6 +1,6 @@
-From 0ec0e79dd77786219d6ed7253b13caad86793120 Mon Sep 17 00:00:00 2001
+From 9c48793df60621c58ba1660bcfd85167719bb048 Mon Sep 17 00:00:00 2001
 From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
-Date: Fri, 22 Dec 2017 17:55:25 +0800
+Date: Fri, 22 Dec 2017 09:14:49 -0500
 Subject: [PATCH 19/19] riscv-hyper: rename env->vm to virt_mode
 
 Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
@@ -11,7 +11,7 @@ Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
  3 files changed, 18 insertions(+), 18 deletions(-)
 
 diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
-index de35f3b..2a0c140 100644
+index 0db8b28..b6f73bb 100644
 --- a/target-riscv/cpu.h
 +++ b/target-riscv/cpu.h
 @@ -168,7 +168,7 @@ typedef struct CPURISCVState {
@@ -20,7 +20,7 @@ index de35f3b..2a0c140 100644
       */
 -    target_ulong vm;
 +    target_ulong virt_mode;
-     /* 
+     /*
       * hold the original virtual address,
       * when an access fault, page fault, or misaligned address exception.
 @@ -372,7 +372,7 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
