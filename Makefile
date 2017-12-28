@@ -120,6 +120,11 @@ linux-update:
 	@cd $(DIR_LINUX);								\
 		git am $(DIR_RISCV)/patch/linux/*
 
+linux-simple-make:
+	@echo "Making (in several minutes) ..."
+	@make -C $(DIR_LINUX) ARCH=riscv -j4			\
+		> $(LINUX_BUILDLOG) 2>&1
+
 linux-make:
 	@test -d $(LOG_PATH) ||							\
 		mkdir -p $(LOG_PATH)
