@@ -1,37 +1,32 @@
-From c01c935798ae8785fe9bb3a050455bd1041f16e0 Mon Sep 17 00:00:00 2001
+From a6dc807e5ab3e3322d0b21cd447fcd24e6c6a41f Mon Sep 17 00:00:00 2001
 From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
 Date: Tue, 26 Dec 2017 22:05:35 +0800
 Subject: [PATCH 1/1] add kvm/riscv
 
 Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
 ---
- arch/riscv/Kconfig         |  8 ++++++++
+ arch/riscv/Kconfig         |  3 +++
  arch/riscv/kvm/Kconfig     | 39 +++++++++++++++++++++++++++++++++++++++
  arch/riscv/kvm/Makefile    | 10 ++++++++++
  arch/riscv/kvm/kvm_riscv.c | 44 ++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 101 insertions(+)
+ 4 files changed, 96 insertions(+)
  create mode 100644 arch/riscv/kvm/Kconfig
  create mode 100644 arch/riscv/kvm/Makefile
  create mode 100644 arch/riscv/kvm/kvm_riscv.c
 
 diff --git a/arch/riscv/Kconfig b/arch/riscv/Kconfig
-index 7aadb86..18a74b5 100644
+index 7aadb86..a34b863 100644
 --- a/arch/riscv/Kconfig
 +++ b/arch/riscv/Kconfig
-@@ -108,6 +108,12 @@ config ARCH_RV64I
+@@ -107,6 +107,7 @@ config ARCH_RV64I
+ 	bool "RV64I"
  	select CPU_SUPPORTS_64BIT_KERNEL
  	select 64BIT
- 
-+config ARCH_RV64IH
-+	bool "RV64IH"
-+	select CPU_SUPPORTS_64BIT_KERNEL
-+	select 64BIT
 +	select HAVE_KVM
-+
+ 
  endchoice
  
- # We must be able to map all physical memory into the kernel, but the compiler
-@@ -313,3 +319,5 @@ source "security/Kconfig"
+@@ -313,3 +314,5 @@ source "security/Kconfig"
  source "crypto/Kconfig"
  
  source "lib/Kconfig"
