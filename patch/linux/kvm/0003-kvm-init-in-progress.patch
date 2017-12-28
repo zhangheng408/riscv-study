@@ -1,0 +1,104 @@
+From 80e4247a0ba7dbc934e59c24c319e740fd5ab251 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 28 Dec 2017 16:45:10 +0800
+Subject: [PATCH 1/1] kvm init: in progress
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/kvm/kvm_riscv.c | 38 ++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 36 insertions(+), 2 deletions(-)
+
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index 0deaea4..6e8cc4b 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -29,6 +29,8 @@
+ 
+ #include <linux/kvm_host.h>
+ 
++static bool kvm_riscv_inited = false;
++
+ struct kvm_stats_debugfs_item debugfs_entries[] = {
+ 	{NULL}
+ };
+@@ -59,11 +61,23 @@ void kvm_arch_hardware_disable(void)
+ 
+ int kvm_arch_hardware_setup(void)
+ {
++    /*
++     * 可能需要比如打开虚拟化等操作
++     * 但是这里并没有
++     */
+ 	return 0;
+ }
+ 
++void kvm_arch_hardware_unsetup(void)
++{
++}
++
+ void kvm_arch_check_processor_compat(void *rtn)
+ {
++    /*
++     * 所以这里才是检查硬件是否合适??
++     * 那为什么setup函数在之前调用
++     */
+ 	*(int *)rtn = 0;
+ }
+ 
+@@ -183,11 +197,27 @@ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
+ 
+ int kvm_arch_init(void *opaque)
+ {
++    if (kvm_riscv_inited) {
++        kvm_err("kvm: %s have been inited", THIS_MODULE->name);
++        return -EEXIST;
++    }
++
++    kvm_riscv_inited = true;
++
++    /*
++     * MIPS在这里设置kvm_mips_callbacks，用于支持不同的kvm实现
++     * RISCV在这里先不支持多种实现
++     * 但是也需要保证kvm_init只被有效执行一次
++     *
++     * 可以在这里检查硬件是否支持虚拟化
++     * 但是RISCV没有定义/实现misa的SBI接口
++     */
+ 	return 0;
+ }
+ 
+ void kvm_arch_exit(void)
+ {
++    kvm_riscv_inited = false;
+ }
+ 
+ int kvm_arch_vcpu_ioctl_get_sregs(struct kvm_vcpu *vcpu,
+@@ -281,7 +311,6 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
+ {
+ }
+ 
+-void kvm_arch_hardware_unsetup(void) {}
+ void kvm_arch_sync_events(struct kvm *kvm) {}
+ void kvm_arch_free_memslot(struct kvm *kvm,
+ 		struct kvm_memory_slot *free, struct kvm_memory_slot *dont) {}
+@@ -293,11 +322,16 @@ void kvm_arch_vcpu_block_finish(struct kvm_vcpu *vcpu) {}
+ 
+ static int __init kvm_riscv_init(void)
+ {
+-	return 0;
++	return kvm_init(NULL, sizeof(struct kvm_vcpu), 0, THIS_MODULE);
++    /*
++     * MIPS在这里还注册了kvm_mips_csr_die_notifier
++     * 但是不知道是干什么用的
++     */
+ }
+ 
+ static void __exit kvm_riscv_exit(void)
+ {
++	kvm_exit();
+ }
+ 
+ module_init(kvm_riscv_init);
+-- 
+2.7.4
+

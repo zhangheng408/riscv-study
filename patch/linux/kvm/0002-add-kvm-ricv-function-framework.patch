@@ -1,0 +1,656 @@
+From 44080131d5b2c49b7e62565947e702f8e189ddc8 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 28 Dec 2017 14:43:26 +0800
+Subject: [PATCH 2/2] add kvm/ricv function framework
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/Makefile               |   2 +
+ arch/riscv/include/asm/kvm_host.h | 224 +++++++++++++++++++++++++++++++
+ arch/riscv/include/uapi/asm/kvm.h |  64 +++++++++
+ arch/riscv/kvm/Kconfig            |   2 -
+ arch/riscv/kvm/Makefile           |   4 +-
+ arch/riscv/kvm/kvm_riscv.c        | 269 +++++++++++++++++++++++++++++++++++++-
+ 6 files changed, 558 insertions(+), 7 deletions(-)
+ create mode 100644 arch/riscv/include/asm/kvm_host.h
+ create mode 100644 arch/riscv/include/uapi/asm/kvm.h
+
+diff --git a/arch/riscv/Makefile b/arch/riscv/Makefile
+index 6719dd3..934338c 100644
+--- a/arch/riscv/Makefile
++++ b/arch/riscv/Makefile
+@@ -67,6 +67,8 @@ head-y := arch/riscv/kernel/head.o
+ 
+ core-y += arch/riscv/kernel/ arch/riscv/mm/
+ 
++core-y += arch/riscv/kvm/
++
+ libs-y += arch/riscv/lib/
+ 
+ all: vmlinux
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+new file mode 100644
+index 0000000..0275052
+--- /dev/null
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -0,0 +1,224 @@
++/*
++* This file is subject to the terms and conditions of the GNU General Public
++* License.  See the file "COPYING" in the main directory of this archive
++* for more details.
++*/
++
++#ifndef __RISCV_KVM_HOST_H__
++#define __RISCV_KVM_HOST_H__
++
++#include <linux/cpumask.h>
++#include <linux/mutex.h>
++#include <linux/hrtimer.h>
++#include <linux/interrupt.h>
++#include <linux/types.h>
++#include <linux/kvm.h>
++#include <linux/kvm_types.h>
++#include <linux/threads.h>
++#include <linux/spinlock.h>
++
++
++#define KVM_MAX_VCPUS		8
++#define KVM_USER_MEM_SLOTS	8
++/* memory slots that does not exposed to userspace */
++#define KVM_PRIVATE_MEM_SLOTS	0
++
++#define KVM_HALT_POLL_NS_DEFAULT 500000
++
++
++
++/*
++ * Special address that contains the comm page, used for reducing # of traps
++ * This needs to be within 32Kb of 0x0 (so the zero register can be used), but
++ * preferably not at 0x0 so that most kernel NULL pointer dereferences can be
++ * caught.
++ */
++#define KVM_GUEST_COMMPAGE_ADDR		((PAGE_SIZE > 0x8000) ?	0 : \
++					 (0x8000 - PAGE_SIZE))
++
++#define KVM_GUEST_KERNEL_MODE(vcpu)	((kvm_read_c0_guest_status(vcpu->arch.cop0) & (ST0_EXL | ST0_ERL)) || \
++					((kvm_read_c0_guest_status(vcpu->arch.cop0) & KSU_USER) == 0))
++
++#define KVM_GUEST_KUSEG			0x00000000UL
++#define KVM_GUEST_KSEG0			0x40000000UL
++#define KVM_GUEST_KSEG1			0x40000000UL
++#define KVM_GUEST_KSEG23		0x60000000UL
++#define KVM_GUEST_KSEGX(a)		((_ACAST32_(a)) & 0xe0000000)
++#define KVM_GUEST_CPHYSADDR(a)		((_ACAST32_(a)) & 0x1fffffff)
++
++#define KVM_GUEST_CKSEG0ADDR(a)		(KVM_GUEST_CPHYSADDR(a) | KVM_GUEST_KSEG0)
++#define KVM_GUEST_CKSEG1ADDR(a)		(KVM_GUEST_CPHYSADDR(a) | KVM_GUEST_KSEG1)
++#define KVM_GUEST_CKSEG23ADDR(a)	(KVM_GUEST_CPHYSADDR(a) | KVM_GUEST_KSEG23)
++
++/*
++ * Map an address to a certain kernel segment
++ */
++#define KVM_GUEST_KSEG0ADDR(a)		(KVM_GUEST_CPHYSADDR(a) | KVM_GUEST_KSEG0)
++#define KVM_GUEST_KSEG1ADDR(a)		(KVM_GUEST_CPHYSADDR(a) | KVM_GUEST_KSEG1)
++#define KVM_GUEST_KSEG23ADDR(a)		(KVM_GUEST_CPHYSADDR(a) | KVM_GUEST_KSEG23)
++
++#define KVM_INVALID_PAGE		0xdeadbeef
++#define KVM_INVALID_ADDR		0xdeadbeef
++
++/*
++ * EVA has overlapping user & kernel address spaces, so user VAs may be >
++ * PAGE_OFFSET. For this reason we can't use the default KVM_HVA_ERR_BAD of
++ * PAGE_OFFSET.
++ */
++
++#define KVM_HVA_ERR_BAD			(-1UL)
++#define KVM_HVA_ERR_RO_BAD		(-2UL)
++
++static inline bool kvm_is_error_hva(unsigned long addr)
++{
++	return IS_ERR_VALUE(addr);
++}
++
++struct kvm_vm_stat {
++	ulong remote_tlb_flush;
++};
++
++struct kvm_vcpu_stat {
++	u64 wait_exits;
++	u64 cache_exits;
++	u64 signal_exits;
++	u64 int_exits;
++	u64 cop_unusable_exits;
++	u64 tlbmod_exits;
++	u64 tlbmiss_ld_exits;
++	u64 tlbmiss_st_exits;
++	u64 addrerr_st_exits;
++	u64 addrerr_ld_exits;
++	u64 syscall_exits;
++	u64 resvd_inst_exits;
++	u64 break_inst_exits;
++	u64 trap_inst_exits;
++	u64 msa_fpe_exits;
++	u64 fpe_exits;
++	u64 msa_disabled_exits;
++	u64 flush_dcache_exits;
++	u64 halt_successful_poll;
++	u64 halt_attempted_poll;
++	u64 halt_poll_invalid;
++	u64 halt_wakeup;
++};
++
++struct kvm_arch_memory_slot {
++};
++
++struct kvm_arch {
++	/* Guest physical mm */
++	struct mm_struct gpa_mm;
++	/* Mask of CPUs needing GPA ASID flush */
++	cpumask_t asid_flush_mask;
++};
++
++struct kvm_arch_async_pf {
++};
++
++/* Resume Flags */
++#define RESUME_FLAG_DR		(1<<0)	/* Reload guest nonvolatile state? */
++#define RESUME_FLAG_HOST	(1<<1)	/* Resume host? */
++
++#define RESUME_GUEST		0
++#define RESUME_GUEST_DR		RESUME_FLAG_DR
++#define RESUME_HOST		RESUME_FLAG_HOST
++
++#define KVM_NR_MEM_OBJS     4
++
++/*
++ * We don't want allocation failures within the mmu code, so we preallocate
++ * enough memory for a single page fault in a cache.
++ */
++struct kvm_mmu_memory_cache {
++	int nobjs;
++	void *objects[KVM_NR_MEM_OBJS];
++};
++
++
++struct kvm_vcpu_arch {
++	void *guest_ebase;
++	int (*vcpu_run)(struct kvm_run *run, struct kvm_vcpu *vcpu);
++
++	/* Host registers preserved across guest mode execution */
++	unsigned long host_stack;
++	unsigned long host_gp;
++	unsigned long host_pgd;
++	unsigned long host_entryhi;
++
++	/* Host CP0 registers used when handling exits from guest */
++	unsigned long host_cp0_badvaddr;
++	unsigned long host_cp0_epc;
++	u32 host_cp0_cause;
++	u32 host_cp0_guestctl0;
++	u32 host_cp0_badinstr;
++	u32 host_cp0_badinstrp;
++
++	/* GPRS */
++	unsigned long gprs[32];
++	unsigned long hi;
++	unsigned long lo;
++	unsigned long pc;
++
++	/* Host KSEG0 address of the EI/DI offset */
++	void *kseg0_commpage;
++
++	/* Resume PC after MMIO completion */
++	unsigned long io_pc;
++	/* GPR used as IO source/target */
++	u32 io_gpr;
++
++	struct hrtimer comparecount_timer;
++	/* Count timer control KVM register */
++	u32 count_ctl;
++	/* Count bias from the raw time */
++	u32 count_bias;
++	/* Frequency of timer in Hz */
++	u32 count_hz;
++	/* Dynamic nanosecond bias (multiple of count_period) to avoid overflow */
++	s64 count_dyn_bias;
++	/* Resume time */
++	ktime_t count_resume;
++	/* Period of timer tick in ns */
++	u64 count_period;
++
++	/* Bitmask of exceptions that are pending */
++	unsigned long pending_exceptions;
++
++	/* Bitmask of pending exceptions to be cleared */
++	unsigned long pending_exceptions_clr;
++
++	/* Guest kernel/user [partial] mm */
++	struct mm_struct guest_kernel_mm, guest_user_mm;
++
++	/* Guest ASID of last user mode execution */
++	unsigned int last_user_gasid;
++
++	/* Cache some mmu pages needed inside spinlock regions */
++	struct kvm_mmu_memory_cache mmu_page_cache;
++
++	/* Last CPU the VCPU state was loaded on */
++	int last_sched_cpu;
++	/* Last CPU the VCPU actually executed guest code on */
++	int last_exec_cpu;
++
++	/* WAIT executed */
++	int wait;
++
++	u8 fpu_enabled;
++	u8 msa_enabled;
++};
++
++int kvm_arch_interrupt_allowed(struct kvm_vcpu *vcpu);
++void kvm_arch_async_page_not_present(struct kvm_vcpu *vcpu,
++				     struct kvm_async_pf *work);
++void kvm_arch_async_page_present(struct kvm_vcpu *vcpu,
++				 struct kvm_async_pf *work);
++void kvm_arch_async_page_ready(struct kvm_vcpu *vcpu,
++			       struct kvm_async_pf *work);
++bool kvm_arch_can_inject_async_page_present(struct kvm_vcpu *vcpu);
++void kvm_arch_vcpu_blocking(struct kvm_vcpu *vcpu);
++void kvm_arch_vcpu_unblocking(struct kvm_vcpu *vcpu);
++void kvm_arch_vcpu_block_finish(struct kvm_vcpu *vcpu);
++
++#endif /* __RISCV_KVM_HOST_H__ */
+diff --git a/arch/riscv/include/uapi/asm/kvm.h b/arch/riscv/include/uapi/asm/kvm.h
+new file mode 100644
+index 0000000..d2bfdbd
+--- /dev/null
++++ b/arch/riscv/include/uapi/asm/kvm.h
+@@ -0,0 +1,64 @@
++/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
++/*
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file "COPYING" in the main directory of this archive
++ * for more details.
++ */
++
++#ifndef __LINUX_KVM_RISCV_H
++#define __LINUX_KVM_RISCV_H
++
++#include <linux/types.h>
++
++/*
++ * KVM RISCV specific structures and definitions.
++ *
++ * Some parts derived from the x86 version of this file.
++ */
++
++#define __KVM_HAVE_READONLY_MEM
++
++#define KVM_COALESCED_MMIO_PAGE_OFFSET 1
++
++/*
++ * for KVM_GET_REGS and KVM_SET_REGS
++ *
++ * If Config[AT] is zero (32-bit CPU), the register contents are
++ * stored in the lower 32-bits of the struct kvm_regs fields and sign
++ * extended to 64-bits.
++ */
++struct kvm_regs {
++	/* out (KVM_GET_REGS) / in (KVM_SET_REGS) */
++	__u64 gpr[32];
++	__u64 hi;
++	__u64 lo;
++	__u64 pc;
++};
++
++/*
++ * for KVM_GET_FPU and KVM_SET_FPU
++ */
++struct kvm_fpu {
++};
++
++/*
++ * KVM RISCV specific structures and definitions
++ *
++ */
++struct kvm_debug_exit_arch {
++	__u64 epc;
++};
++
++/* for KVM_SET_GUEST_DEBUG */
++struct kvm_guest_debug_arch {
++};
++
++/* definition of registers in kvm_run */
++struct kvm_sync_regs {
++};
++
++/* dummy definition */
++struct kvm_sregs {
++};
++
++#endif /* __LINUX_KVM_RISCV_H */
+diff --git a/arch/riscv/kvm/Kconfig b/arch/riscv/kvm/Kconfig
+index f62ba94..42f706e 100644
+--- a/arch/riscv/kvm/Kconfig
++++ b/arch/riscv/kvm/Kconfig
+@@ -34,6 +34,4 @@ config KVM_RISCV
+ 	---help---
+         KVM/RISCV supports
+ 
+-source drivers/vhost/Kconfig
+-
+ endif # VIRTUALIZATION
+diff --git a/arch/riscv/kvm/Makefile b/arch/riscv/kvm/Makefile
+index d8c7781..086e4c4 100644
+--- a/arch/riscv/kvm/Makefile
++++ b/arch/riscv/kvm/Makefile
+@@ -1,9 +1,9 @@
+ # SPDX-License-Identifier: GPL-2.0
+-# Makefile for KVM support for MIPS
++# Makefile for KVM support for RISCV
+ #
+ kvm-y = $(addprefix ../../../virt/kvm/, kvm_main.o coalesced_mmio.o)
+ 
+-EXTRA_CFLAGS += -Ivirt/kvm -Iarch/mips/kvm
++EXTRA_CFLAGS += -Ivirt/kvm -Iarch/riscv/kvm
+ 
+ obj-$(CONFIG_KVM)	+= kvm.o
+ 
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index cd99a2f..0deaea4 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -20,25 +20,288 @@
+ #include <linux/fs.h>
+ #include <linux/bootmem.h>
+ 
+-#include <asm/fpu.h>
+ #include <asm/page.h>
+ #include <asm/cacheflush.h>
+ #include <asm/mmu_context.h>
+ #include <asm/pgalloc.h>
+ #include <asm/pgtable.h>
++#include <asm/sbi.h>
+ 
+ #include <linux/kvm_host.h>
+ 
++struct kvm_stats_debugfs_item debugfs_entries[] = {
++	{NULL}
++};
++
++int kvm_arch_vcpu_runnable(struct kvm_vcpu *vcpu)
++{
++	return false;
++}
++
++bool kvm_arch_vcpu_in_kernel(struct kvm_vcpu *vcpu)
++{
++	return false;
++}
++
++int kvm_arch_vcpu_should_kick(struct kvm_vcpu *vcpu)
++{
++	return 1;
++}
++
++int kvm_arch_hardware_enable(void)
++{
++	return 0;
++}
++
++void kvm_arch_hardware_disable(void)
++{
++}
++
++int kvm_arch_hardware_setup(void)
++{
++	return 0;
++}
++
++void kvm_arch_check_processor_compat(void *rtn)
++{
++	*(int *)rtn = 0;
++}
++
++int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
++{
++	return 0;
++}
++
++bool kvm_arch_has_vcpu_debugfs(void)
++{
++	return false;
++}
++
++int kvm_arch_create_vcpu_debugfs(struct kvm_vcpu *vcpu)
++{
++	return 0;
++}
++
++void kvm_arch_destroy_vm(struct kvm *kvm)
++{
++}
++
++long kvm_arch_dev_ioctl(struct file *filp, unsigned int ioctl,
++			unsigned long arg)
++{
++	return -ENOIOCTLCMD;
++}
++
++int kvm_arch_create_memslot(struct kvm *kvm, struct kvm_memory_slot *slot,
++			    unsigned long npages)
++{
++	return 0;
++}
++
++void kvm_arch_flush_shadow_all(struct kvm *kvm)
++{
++}
++
++void kvm_arch_flush_shadow_memslot(struct kvm *kvm,
++				   struct kvm_memory_slot *slot)
++{
++}
++
++int kvm_arch_prepare_memory_region(struct kvm *kvm,
++				   struct kvm_memory_slot *memslot,
++				   const struct kvm_userspace_memory_region *mem,
++				   enum kvm_mr_change change)
++{
++	return 0;
++}
++
++void kvm_arch_commit_memory_region(struct kvm *kvm,
++				   const struct kvm_userspace_memory_region *mem,
++				   const struct kvm_memory_slot *old,
++				   const struct kvm_memory_slot *new,
++				   enum kvm_mr_change change)
++{
++}
++
++struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
++{
++    return NULL;
++}
++
++void kvm_arch_vcpu_free(struct kvm_vcpu *vcpu)
++{
++}
++
++void kvm_arch_vcpu_destroy(struct kvm_vcpu *vcpu)
++{
++}
++
++int kvm_arch_vcpu_ioctl_set_guest_debug(struct kvm_vcpu *vcpu,
++					struct kvm_guest_debug *dbg)
++{
++	return -ENOIOCTLCMD;
++}
++
++int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
++{
++    return 0;
++}
++
++int kvm_arch_vcpu_ioctl_get_mpstate(struct kvm_vcpu *vcpu,
++				    struct kvm_mp_state *mp_state)
++{
++	return -ENOIOCTLCMD;
++}
++
++int kvm_arch_vcpu_ioctl_set_mpstate(struct kvm_vcpu *vcpu,
++				    struct kvm_mp_state *mp_state)
++{
++	return -ENOIOCTLCMD;
++}
++
++long kvm_arch_vcpu_ioctl(struct file *filp, unsigned int ioctl,
++			 unsigned long arg)
++{
++    return 0;
++}
++int kvm_vm_ioctl_get_dirty_log(struct kvm *kvm, struct kvm_dirty_log *log)
++{
++    return 0;
++}
++
++long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
++{
++	long r;
++
++	switch (ioctl) {
++	default:
++		r = -ENOIOCTLCMD;
++	}
++
++	return r;
++}
++
++int kvm_arch_init(void *opaque)
++{
++	return 0;
++}
++
++void kvm_arch_exit(void)
++{
++}
++
++int kvm_arch_vcpu_ioctl_get_sregs(struct kvm_vcpu *vcpu,
++				  struct kvm_sregs *sregs)
++{
++	return -ENOIOCTLCMD;
++}
++
++int kvm_arch_vcpu_ioctl_set_sregs(struct kvm_vcpu *vcpu,
++				  struct kvm_sregs *sregs)
++{
++	return -ENOIOCTLCMD;
++}
++
++void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
++{
++}
++
++int kvm_arch_vcpu_ioctl_get_fpu(struct kvm_vcpu *vcpu, struct kvm_fpu *fpu)
++{
++	return -ENOIOCTLCMD;
++}
++
++int kvm_arch_vcpu_ioctl_set_fpu(struct kvm_vcpu *vcpu, struct kvm_fpu *fpu)
++{
++	return -ENOIOCTLCMD;
++}
++
++int kvm_arch_vcpu_fault(struct kvm_vcpu *vcpu, struct vm_fault *vmf)
++{
++	return VM_FAULT_SIGBUS;
++}
++
++int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
++{
++    return 0;
++}
++
++int kvm_cpu_has_pending_timer(struct kvm_vcpu *vcpu)
++{
++	return false;
++}
++
++int kvm_arch_vcpu_dump_regs(struct kvm_vcpu *vcpu)
++{
++    return 0;
++}
++
++int kvm_arch_vcpu_ioctl_set_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
++{
++	return 0;
++}
++
++int kvm_arch_vcpu_ioctl_get_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
++{
++	return 0;
++}
++
++int kvm_arch_vcpu_init(struct kvm_vcpu *vcpu)
++{
++    return 0;
++}
++
++void kvm_arch_vcpu_uninit(struct kvm_vcpu *vcpu)
++{
++}
++
++int kvm_arch_vcpu_ioctl_translate(struct kvm_vcpu *vcpu,
++				  struct kvm_translation *tr)
++{
++	return 0;
++}
++
++/* Initial guest state */
++int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
++{
++	return 0;
++}
++
++void kvm_arch_mmu_enable_log_dirty_pt_masked(struct kvm *kvm,
++		struct kvm_memory_slot *slot,
++		gfn_t gfn_offset, unsigned long mask)
++{
++}
++
++void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
++{
++}
++
++void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
++{
++}
++
++void kvm_arch_hardware_unsetup(void) {}
++void kvm_arch_sync_events(struct kvm *kvm) {}
++void kvm_arch_free_memslot(struct kvm *kvm,
++		struct kvm_memory_slot *free, struct kvm_memory_slot *dont) {}
++void kvm_arch_memslots_updated(struct kvm *kvm, struct kvm_memslots *slots) {}
++void kvm_arch_sched_in(struct kvm_vcpu *vcpu, int cpu) {}
++void kvm_arch_vcpu_blocking(struct kvm_vcpu *vcpu) {}
++void kvm_arch_vcpu_unblocking(struct kvm_vcpu *vcpu) {}
++void kvm_arch_vcpu_block_finish(struct kvm_vcpu *vcpu) {}
++
+ static int __init kvm_riscv_init(void)
+ {
+-    printk("%s\n", __func__);
+ 	return 0;
+ }
+ 
+ static void __exit kvm_riscv_exit(void)
+ {
+-    printk("%s\n", __func__);
+ }
+ 
+ module_init(kvm_riscv_init);
+ module_exit(kvm_riscv_exit);
++
++MODULE_DESCRIPTION("RISC-V KVM");
++MODULE_LICENSE("GPL v2");
+-- 
+2.7.4
+
