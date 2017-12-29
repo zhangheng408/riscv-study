@@ -1,0 +1,171 @@
+From 0122844d93bf51942a57ffba7c97ea1f05fae532 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Fri, 29 Dec 2017 17:13:59 +0800
+Subject: [PATCH 4/4] add comments based on vmx/x86
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/kvm/kvm_riscv.c | 86 +++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 81 insertions(+), 5 deletions(-)
+
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index 6e8cc4b..c901f53 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -32,6 +32,10 @@
+ static bool kvm_riscv_inited = false;
+ 
+ struct kvm_stats_debugfs_item debugfs_entries[] = {
++    /*
++     * vm/vcpu结构体中对应的变量而已
++     * RISCV应该没有打开debugfs吧？
++     */
+ 	{NULL}
+ };
+ 
+@@ -52,11 +56,23 @@ int kvm_arch_vcpu_should_kick(struct kvm_vcpu *vcpu)
+ 
+ int kvm_arch_hardware_enable(void)
+ {
++    /*
++     * x86
++     * 更新共享MSR
++     * 初始化加载/阻塞vcpu列表
++     * 更新每个VCPU的时钟
++     */
+ 	return 0;
+ }
+ 
+ void kvm_arch_hardware_disable(void)
+ {
++    /* x86
++     * 清除加载的vmcs, 关闭vmx
++     *
++     * RISCV
++     * 也清除vcpu，通过misa关闭虚拟机拓展
++     */
+ }
+ 
+ int kvm_arch_hardware_setup(void)
+@@ -64,19 +80,34 @@ int kvm_arch_hardware_setup(void)
+     /*
+      * 可能需要比如打开虚拟化等操作
+      * 但是这里并没有
++     *
++     * x86建立MSR/IO映射相关结构体
++     * 初始化vmcs配置、vpid、shadow vmcs、ept、vnmi
++     * 为每个CPU申请VMCS结构体
++     *
++     * RISCV估计也需要一个控制结构体，kvm_vcpu?
++     *!!可能需要初始化ASID
++     * VNMI在RISCV中还没有涉及。
+      */
+ 	return 0;
+ }
+ 
+ void kvm_arch_hardware_unsetup(void)
+ {
++    /*
++     * x86
++     * 释放所有bimap数组
++     * 释放每个cpu的kvm area(vmcs指针)
++     */
+ }
+ 
+ void kvm_arch_check_processor_compat(void *rtn)
+ {
+     /*
+-     * 所以这里才是检查硬件是否合适??
+-     * 那为什么setup函数在之前调用
++     * 这个函数是在每个CPU上都执行的
++     *
++     * x86是检查每个CPU的vmcs_config是否一致
++     * RISCV可以先为空
+      */
+ 	*(int *)rtn = 0;
+ }
+@@ -209,8 +240,26 @@ int kvm_arch_init(void *opaque)
+      * RISCV在这里先不支持多种实现
+      * 但是也需要保证kvm_init只被有效执行一次
+      *
+-     * 可以在这里检查硬件是否支持虚拟化
++     * !!!!!!!!!!
++     * 应该在这里检查硬件是否支持虚拟化
+      * 但是RISCV没有定义/实现misa的SBI接口
++     *
++     * x86申请了共享MSR
++     * RISCV似乎没有共享资源
++     *
++     * kvm mmu初始化
++     *  RISCV屏蔽cache的概念
++     *!!需要ASID的管理
++     *  页表每个虚拟机自己管理就行，包括MMIO
++     *
++     * kvm timer初始化
++     *  获取了时钟频率而已
++     *
++     * 注册guest callbacks
++     *  用于虚拟机判断自己的状态
++     *
++     * APIC初始化
++     *!!RISCV的中断处理如何做？
+      */
+ 	return 0;
+ }
+@@ -305,24 +354,51 @@ void kvm_arch_mmu_enable_log_dirty_pt_masked(struct kvm *kvm,
+ 
+ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+ {
++    /*
++     * x86加载vmcs, 更新时钟
++     *
++     * RISCV, 加载虚拟机的备份寄存器
++     */
+ }
+ 
+ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
+ {
++    /*
++     * x86加载主机状态
++     *
++     * RISCV应该不需要做什么
++     * 主备寄存器自动切换
++     */
+ }
+ 
+ void kvm_arch_sync_events(struct kvm *kvm) {}
+ void kvm_arch_free_memslot(struct kvm *kvm,
+ 		struct kvm_memory_slot *free, struct kvm_memory_slot *dont) {}
+ void kvm_arch_memslots_updated(struct kvm *kvm, struct kvm_memslots *slots) {}
+-void kvm_arch_sched_in(struct kvm_vcpu *vcpu, int cpu) {}
++void kvm_arch_sched_in(struct kvm_vcpu *vcpu, int cpu)
++{
++    /*
++     * x86执行了shrink_ple_window，完全不懂PLE是啥？？？？
++     */
++}
+ void kvm_arch_vcpu_blocking(struct kvm_vcpu *vcpu) {}
+ void kvm_arch_vcpu_unblocking(struct kvm_vcpu *vcpu) {}
+ void kvm_arch_vcpu_block_finish(struct kvm_vcpu *vcpu) {}
+ 
+ static int __init kvm_riscv_init(void)
+ {
+-	return kvm_init(NULL, sizeof(struct kvm_vcpu), 0, THIS_MODULE);
++    /*
++     * x86/VMX
++     * 第一个参数传入了vmx_x86_ops，以此完成多种实现
++     * 第二个参数传入sizeof(struct vcpu_vmx)
++     *  他们是自己定义的vcpu_vmx，这个结构体只有本文件使用
++     *      vcpu_vmx中包含一个kvm_vcpu结构体
++     *      剩下有很多自动加载msr，虚拟机状态等信息
++     *
++     *  kvm_init也只是帮忙申请一个cache(作用另说)
++     */
++	return kvm_init(NULL, sizeof(struct kvm_vcpu),
++            __alignof__(struct kvm_vcpu), THIS_MODULE);
+     /*
+      * MIPS在这里还注册了kvm_mips_csr_die_notifier
+      * 但是不知道是干什么用的
+-- 
+2.7.4
+
