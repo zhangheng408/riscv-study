@@ -1,0 +1,26 @@
+From e3f31081aa59617e759af371eed430635cfd8843 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Fri, 5 Jan 2018 16:38:34 +0800
+Subject: [PATCH 5/5] kvm: fix a bug
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/kvm/kvm_riscv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index c901f53..a0c4354 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -229,7 +229,7 @@ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
+ int kvm_arch_init(void *opaque)
+ {
+     if (kvm_riscv_inited) {
+-        kvm_err("kvm: %s have been inited", THIS_MODULE->name);
++        kvm_err("kvm: riscv kvm have been inited");
+         return -EEXIST;
+     }
+ 
+-- 
+2.7.4
+
