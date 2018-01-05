@@ -144,6 +144,11 @@ linux-make:
 		$(DIR_LINUX)/vmlinux						\
 		> $(LOG_PATH)/dump.linux.log
 
+kvm-tool-make:
+	gcc $(DIR_RISCV)/kvm-tools/kvm-tool.c			\
+		-static										\
+		-o $(INSTALL)/kvm-tool
+
 pk-make:
 	@echo "clean old build ..."
 	@rm -rf $(DIR_INSTALL)/riscv-pk
