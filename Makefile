@@ -115,10 +115,12 @@ linux-update:
 	@echo "clean git dir ..."
 	@cd $(DIR_LINUX);								\
 		git clean -qndf;							\
-		git checkout -f $(LINUX_BASE)
+		git checkout -fB mprc $(LINUX_BASE)
 	@echo "apply linux patch ..."
 	@cd $(DIR_LINUX);								\
 		git am $(DIR_RISCV)/patch/linux/*
+	@cd $(DIR_LINUX);								\
+		git am $(DIR_RISCV)/patch/linux/kvm/*
 
 linux-simple-make:
 	@echo "Making (in several minutes) ..."
@@ -189,7 +191,7 @@ qemu-update:
 	@echo "clean git dir ..."
 	@cd $(DIR_QEMU);								\
 		git clean -qndf;							\
-		git checkout -f $(QEMU_BASE)
+		git checkout -fB mprc $(QEMU_BASE)
 	@echo "apply qemu patch ..."
 	@cd $(DIR_QEMU);								\
 		git am $(DIR_RISCV)/patch/qemu/*;			\
