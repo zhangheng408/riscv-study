@@ -85,6 +85,7 @@ int create_vm(void){
 
     // 此处最后一个参数为type，riscv忽略该值
     ret = kvm_ioctl(kvm_fd, KVM_CREATE_VM, 0);
+    printf("kvm create vm: %d\n", ret);
     if(ret < 0){
         printf("create vm fail\n");
         return -3;
@@ -93,6 +94,7 @@ int create_vm(void){
 
     // 最后一个参数是vcpu id，riscv应该会忽略，只支持单核
     ret = kvm_ioctl(vm_fd, KVM_CREATE_VCPU, 0);
+    printf("kvm create vcpu: %d\n", ret);
     if(ret < 0){
         printf("create vcpu fail\n");
         return -4;
