@@ -4,6 +4,8 @@ DIR_INSTALL			:= $(DIR_RISCV)/install
 
 TOOLCHAIN			?= $(DIR_INSTALL)/riscv-gnu-toolchain
 PATH				:= $(TOOLCHAIN)/bin:$(PATH)
+CROSS_PREFIX		:= riscv64-unknown-linux-gnu-
+DIR_SYSROOT			:= $(TOOLCHAIN)/sysroot
 
 REPO_RISCV			?= https://github.com/riscv
 REPO_TOOLS			?= $(REPO_RISCV)/riscv-tools
@@ -40,14 +42,19 @@ all:
 	@echo ""
 	@echo "Enjoy riscv!"
 	@echo ""
-	@echo "make highfive"
-	@echo "     or: make clean"
-	@echo "     or: make qemu-new"
-	@echo "     or: make qemu-make"
-	@echo ""
 
 highfive:
 	@make clean
+	@make tools-new
+	@make toolchain-make
+	@make linux-update
+	@make linux-headers-install
+	@make linux-new
+	@make linux-make
+	@make pk-make
+	@make qemu-update
+	@make qemu-make
+	@make qemu-run
 
 clean:
 	@rm -fr $(DIR_WORKING) $(DIR_INSTALL)
@@ -90,9 +97,9 @@ busybox:
 	@echo "Configure and make busybox ..."
 	@echo "CONFIG_STATIC=y"											\
 		> $(DIR_WORKING)/busybox/.config
-	@echo "CONFIG_CROSS_COMPILER_PREFIX=\"riscv64-unknown-linux-gnu-\"" \
+	@echo "CONFIG_CROSS_COMPILER_PREFIX=\"$(CROSS_PREFIX)"" \
 		>> $(DIR_WORKING)/busybox/.config
-	@echo "CONFIG_SYSROOT=\"$(DIR_INSTALL)/riscv-gnu-toolchain/sysroot\""	\
+	@echo "CONFIG_SYSROOT=\"$(DIR_SYSROOT)\""	\
 		>> $(DIR_WORKING)/busybox/.config
 	@yes "" | make -C $(DIR_WORKING)/busybox oldconfig	\
 		> $(BUSYBOX_BUILDLOG) 2>&1
@@ -122,6 +129,12 @@ linux-update:
 	@cd $(DIR_LINUX);								\
 		git am $(DIR_RISCV)/patch/linux/kvm/*
 
+linux-headers-install:
+	@make -C $(DIR_LINUX)							\
+		headers_install								\
+		ARCH=riscv									\
+		INSTALL_HDR_PATH=$(DIR_SYSROOT)/usr/
+
 linux-simple-make:
 	@echo "Making (in several minutes) ..."
 	@make -C $(DIR_LINUX) ARCH=riscv -j4			\
@@ -147,9 +160,10 @@ linux-make:
 		> $(LOG_PATH)/dump.linux.log
 
 kvm-tool-make:
-	gcc $(DIR_RISCV)/kvm-tools/kvm-tool.c			\
+	@$(CROSS_PREFIX)gcc								\
+		$(DIR_RISCV)/kvm-tools/kvm-tool.c			\
 		-static										\
-		-o $(INSTALL)/kvm-tool
+		-o $(DIR_INSTALL)/kvm-tool
 
 pk-make:
 	@echo "clean old build ..."
@@ -221,34 +235,3 @@ qemu-ucb:
 	@$(DIR_INSTALL)/riscv-qemu/bin/qemu-system-riscv64				\
 		-nographic													\
 		-kernel $(DIR_RISCV)/ucb/bblvmlinuxinitramfs_dynamic_1.9.1
-
-fesvr-make:
-	@echo "remove old build..."
-	@test -d $(LOG_PATH) ||											\
-		mkdir -p $(LOG_PATH)
-	@rm -rf $(DIR_INSTALL)/riscv-fesvr
-	@echo "config..."
-	@mkdir -p $(DIR_FESVR)/build
-	@cd $(DIR_FESVR)/build;											\
-		../configure --prefix=$(DIR_INSTALL)/riscv-fesvr			\
-		> $(FESVR_BUILDLOG) 2>&1
-	@echo "make install..."
-	@make -C $(DIR_FESVR)/build install 							\
-		>> $(FESVR_BUILDLOG) 2>&1
-
-isa-sim-make:
-	@echo "remove old build..."
-	@test -d $(LOG_PATH) ||											\
-		mkdir -p $(LOG_PATH)
-	@rm -rf $(DIR_INSTALL)/riscv-isa-sim
-	@echo "config..."
-	@mkdir -p $(DIR_ISA_SIM)/build
-	@cd $(DIR_ISA_SIM)/build;										\
-		../configure --prefix=$(DIR_INSTALL)/riscv-isa-sim			\
-		--with-fesvr=$(DIR_INSTALL)/riscv-fesvr						\
-		> $(ISA_SIM_BUILDLOG) 2>&1
-	@echo "make install..."
-	@make -C $(DIR_ISA_SIM)/build 									\
-		>> $(ISA_SIM_BUILDLOG) 2>&1
-	@make -C $(DIR_ISA_SIM)/build install 							\
-		>> $(ISA_SIM_BUILDLOG) 2>&1
