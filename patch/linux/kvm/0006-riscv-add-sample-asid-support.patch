@@ -1,0 +1,129 @@
+From 672be3f92ef049ead9a014e4b49e9d03cdedd7c6 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sun, 7 Jan 2018 15:15:49 +0800
+Subject: [PATCH 6/6] riscv: add sample asid support
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/include/asm/asid.h | 16 ++++++++++++++++
+ arch/riscv/include/asm/csr.h  |  4 ++++
+ arch/riscv/kernel/setup.c     |  2 ++
+ arch/riscv/mm/Makefile        |  1 +
+ arch/riscv/mm/asid.c          | 31 +++++++++++++++++++++++++++++++
+ 5 files changed, 54 insertions(+)
+ create mode 100644 arch/riscv/include/asm/asid.h
+ create mode 100644 arch/riscv/mm/asid.c
+
+diff --git a/arch/riscv/include/asm/asid.h b/arch/riscv/include/asm/asid.h
+new file mode 100644
+index 0000000..84ad6a0
+--- /dev/null
++++ b/arch/riscv/include/asm/asid.h
+@@ -0,0 +1,16 @@
++#ifndef _ASM_RISCV_ASID_H
++#define _ASM_RISCV_ASID_H
++
++#include <linux/const.h>
++
++#include <asm/csr.h>
++
++#define ASID_MASK   (SPTBR_ASID >> SPTBR_ASID_SHIFT)
++
++void asid_init(void);
++
++unsigned long get_asid(void);
++
++void put_asid(unsigned long asid);
++
++#endif
+diff --git a/arch/riscv/include/asm/csr.h b/arch/riscv/include/asm/csr.h
+index 0d64bc9..a4344f5 100644
+--- a/arch/riscv/include/asm/csr.h
++++ b/arch/riscv/include/asm/csr.h
+@@ -43,12 +43,16 @@
+ /* SPTBR flags */
+ #if __riscv_xlen == 32
+ #define SPTBR_PPN     _AC(0x003FFFFF, UL)
++#define SPTBR_ASID    _AC(0x7FC00000, UL)
+ #define SPTBR_MODE_32 _AC(0x80000000, UL)
+ #define SPTBR_MODE    SPTBR_MODE_32
++#define SPTBR_ASID_SHIFT    (22)
+ #else
+ #define SPTBR_PPN     _AC(0x00000FFFFFFFFFFF, UL)
++#define SPTBR_ASID    _AC(0x0FFFF00000000000, UL)
+ #define SPTBR_MODE_39 _AC(0x8000000000000000, UL)
+ #define SPTBR_MODE    SPTBR_MODE_39
++#define SPTBR_ASID_SHIFT    (44)
+ #endif
+ 
+ /* Interrupt Enable and Interrupt Pending flags */
+diff --git a/arch/riscv/kernel/setup.c b/arch/riscv/kernel/setup.c
+index 2c9cf3d..97a1126 100644
+--- a/arch/riscv/kernel/setup.c
++++ b/arch/riscv/kernel/setup.c
+@@ -35,6 +35,7 @@
+ #include <asm/pgtable.h>
+ #include <asm/smp.h>
+ #include <asm/sbi.h>
++#include <asm/asid.h>
+ #include <asm/tlbflush.h>
+ #include <asm/thread_info.h>
+ 
+@@ -234,6 +235,7 @@ void __init setup_arch(char **cmdline_p)
+ 	init_mm.brk        = (unsigned long) _end;
+ 
+ 	setup_bootmem();
++	asid_init();
+ 	paging_init();
+ 	unflatten_device_tree();
+ 
+diff --git a/arch/riscv/mm/Makefile b/arch/riscv/mm/Makefile
+index eb22ab4..526ea2a 100644
+--- a/arch/riscv/mm/Makefile
++++ b/arch/riscv/mm/Makefile
+@@ -1,4 +1,5 @@
+ obj-y += init.o
++obj-y += asid.o
+ obj-y += fault.o
+ obj-y += extable.o
+ obj-y += ioremap.o
+diff --git a/arch/riscv/mm/asid.c b/arch/riscv/mm/asid.c
+new file mode 100644
+index 0000000..14cdb8d
+--- /dev/null
++++ b/arch/riscv/mm/asid.c
+@@ -0,0 +1,31 @@
++/*
++ * Copyright (C) 2012 Regents of the University of California
++ *
++ *   This program is free software; you can redistribute it and/or
++ *   modify it under the terms of the GNU General Public License
++ *   as published by the Free Software Foundation, version 2.
++ *
++ *   This program is distributed in the hope that it will be useful,
++ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *   GNU General Public License for more details.
++ */
++
++#include <linux/init.h>
++
++#include <asm/asid.h>
++
++static unsigned long asid = 0;
++
++void __init asid_init(void)
++{
++}
++
++unsigned long get_asid(void)
++{
++	return ++asid & ASID_MASK;
++}
++
++void put_asid(unsigned long asid)
++{
++}
+-- 
+2.7.4
+

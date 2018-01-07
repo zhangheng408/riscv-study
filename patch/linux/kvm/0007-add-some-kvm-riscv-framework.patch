@@ -1,0 +1,613 @@
+From 06828e43be96bd07b2500e15ae7f5d976f6a6992 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sun, 7 Jan 2018 21:08:08 +0800
+Subject: [PATCH 7/7] add some kvm/riscv framework
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/include/asm/kvm_host.h |  90 +++----------
+ arch/riscv/kvm/Makefile           |   1 +
+ arch/riscv/kvm/entry.S            |  38 ++++++
+ arch/riscv/kvm/kvm_riscv.c        | 272 ++++++++++++++++++++++----------------
+ 4 files changed, 218 insertions(+), 183 deletions(-)
+ create mode 100644 arch/riscv/kvm/entry.S
+
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index 0275052..1784f1e 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -107,10 +107,9 @@ struct kvm_arch_memory_slot {
+ };
+ 
+ struct kvm_arch {
++    unsigned long asid;
+ 	/* Guest physical mm */
+ 	struct mm_struct gpa_mm;
+-	/* Mask of CPUs needing GPA ASID flush */
+-	cpumask_t asid_flush_mask;
+ };
+ 
+ struct kvm_arch_async_pf {
+@@ -137,76 +136,25 @@ struct kvm_mmu_memory_cache {
+ 
+ 
+ struct kvm_vcpu_arch {
+-	void *guest_ebase;
+-	int (*vcpu_run)(struct kvm_run *run, struct kvm_vcpu *vcpu);
+-
+-	/* Host registers preserved across guest mode execution */
+-	unsigned long host_stack;
+-	unsigned long host_gp;
+-	unsigned long host_pgd;
+-	unsigned long host_entryhi;
+-
+-	/* Host CP0 registers used when handling exits from guest */
+-	unsigned long host_cp0_badvaddr;
+-	unsigned long host_cp0_epc;
+-	u32 host_cp0_cause;
+-	u32 host_cp0_guestctl0;
+-	u32 host_cp0_badinstr;
+-	u32 host_cp0_badinstrp;
+-
+ 	/* GPRS */
+-	unsigned long gprs[32];
+-	unsigned long hi;
+-	unsigned long lo;
+-	unsigned long pc;
+-
+-	/* Host KSEG0 address of the EI/DI offset */
+-	void *kseg0_commpage;
+-
+-	/* Resume PC after MMIO completion */
+-	unsigned long io_pc;
+-	/* GPR used as IO source/target */
+-	u32 io_gpr;
+-
+-	struct hrtimer comparecount_timer;
+-	/* Count timer control KVM register */
+-	u32 count_ctl;
+-	/* Count bias from the raw time */
+-	u32 count_bias;
+-	/* Frequency of timer in Hz */
+-	u32 count_hz;
+-	/* Dynamic nanosecond bias (multiple of count_period) to avoid overflow */
+-	s64 count_dyn_bias;
+-	/* Resume time */
+-	ktime_t count_resume;
+-	/* Period of timer tick in ns */
+-	u64 count_period;
+-
+-	/* Bitmask of exceptions that are pending */
+-	unsigned long pending_exceptions;
+-
+-	/* Bitmask of pending exceptions to be cleared */
+-	unsigned long pending_exceptions_clr;
+-
+-	/* Guest kernel/user [partial] mm */
+-	struct mm_struct guest_kernel_mm, guest_user_mm;
+-
+-	/* Guest ASID of last user mode execution */
+-	unsigned int last_user_gasid;
+-
+-	/* Cache some mmu pages needed inside spinlock regions */
+-	struct kvm_mmu_memory_cache mmu_page_cache;
+-
+-	/* Last CPU the VCPU state was loaded on */
+-	int last_sched_cpu;
+-	/* Last CPU the VCPU actually executed guest code on */
+-	int last_exec_cpu;
+-
+-	/* WAIT executed */
+-	int wait;
+-
+-	u8 fpu_enabled;
+-	u8 msa_enabled;
++	unsigned long gpr[32];
++
++	/* Host status */
++	unsigned long hvtval;
++	unsigned long hstatus;
++	unsigned long hedeleg;
++	unsigned long hideleg;
++
++	/* Guest context */
++	unsigned long sstatus;
++	unsigned long stvec;
++	unsigned long sip;
++	unsigned long sie;
++	unsigned long sscratch;
++	unsigned long sepc;
++	unsigned long scause;
++	unsigned long stval;
++	unsigned long satp;
+ };
+ 
+ int kvm_arch_interrupt_allowed(struct kvm_vcpu *vcpu);
+diff --git a/arch/riscv/kvm/Makefile b/arch/riscv/kvm/Makefile
+index 086e4c4..fca4e29 100644
+--- a/arch/riscv/kvm/Makefile
++++ b/arch/riscv/kvm/Makefile
+@@ -8,3 +8,4 @@ EXTRA_CFLAGS += -Ivirt/kvm -Iarch/riscv/kvm
+ obj-$(CONFIG_KVM)	+= kvm.o
+ 
+ obj-$(CONFIG_KVM_RISCV)	+= kvm_riscv.o
++obj-$(CONFIG_KVM_RISCV)	+= entry.o
+diff --git a/arch/riscv/kvm/entry.S b/arch/riscv/kvm/entry.S
+new file mode 100644
+index 0000000..ae3cd42
+--- /dev/null
++++ b/arch/riscv/kvm/entry.S
+@@ -0,0 +1,38 @@
++#include <asm/asm.h>
++#include <asm/csr.h>
++#include <asm/asm-offsets.h>
++
++ENTRY(enter_virtual_machine)
++	REG_L x1,  PT_RA(a0)
++	REG_L x2,  PT_SP(a0)
++	REG_L x3,  PT_GP(a0)
++	REG_L x4,  PT_TP(a0)
++	REG_L x5,  PT_T0(a0)
++	REG_L x6,  PT_T1(a0)
++	REG_L x7,  PT_T2(a0)
++	REG_L x8,  PT_S0(a0)
++	REG_L x9,  PT_S1(a0)
++	REG_L x11, PT_A1(a0)
++	REG_L x12, PT_A2(a0)
++	REG_L x13, PT_A3(a0)
++	REG_L x14, PT_A4(a0)
++	REG_L x15, PT_A5(a0)
++	REG_L x16, PT_A6(a0)
++	REG_L x17, PT_A7(a0)
++	REG_L x18, PT_S2(a0)
++	REG_L x19, PT_S3(a0)
++	REG_L x20, PT_S4(a0)
++	REG_L x21, PT_S5(a0)
++	REG_L x22, PT_S6(a0)
++	REG_L x23, PT_S7(a0)
++	REG_L x24, PT_S8(a0)
++	REG_L x25, PT_S9(a0)
++	REG_L x26, PT_S10(a0)
++	REG_L x27, PT_S11(a0)
++	REG_L x28, PT_T3(a0)
++	REG_L x29, PT_T4(a0)
++	REG_L x30, PT_T5(a0)
++	REG_L x31, PT_T6(a0)
++	REG_L x10, PT_A0(a0)
++	hret
++ENDPROC(enter_virtual_machine)
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index a0c4354..64fb46c 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -26,16 +26,18 @@
+ #include <asm/pgalloc.h>
+ #include <asm/pgtable.h>
+ #include <asm/sbi.h>
++#include <asm/csr.h>
++#include <asm/asid.h>
+ 
+ #include <linux/kvm_host.h>
+ 
+ static bool kvm_riscv_inited = false;
+ 
+ struct kvm_stats_debugfs_item debugfs_entries[] = {
+-    /*
+-     * vm/vcpu结构体中对应的变量而已
+-     * RISCV应该没有打开debugfs吧？
+-     */
++	/*
++	 * vm/vcpu结构体中对应的变量而已
++	 * RISCV应该没有打开debugfs吧？
++	 */
+ 	{NULL}
+ };
+ 
+@@ -56,64 +58,64 @@ int kvm_arch_vcpu_should_kick(struct kvm_vcpu *vcpu)
+ 
+ int kvm_arch_hardware_enable(void)
+ {
+-    /*
+-     * x86
+-     * 更新共享MSR
+-     * 初始化加载/阻塞vcpu列表
+-     * 更新每个VCPU的时钟
+-     */
++	/*
++	 * x86
++	 * 更新共享MSR
++	 * 初始化加载/阻塞vcpu列表
++	 * 更新每个VCPU的时钟
++	 */
+ 	return 0;
+ }
+ 
+ void kvm_arch_hardware_disable(void)
+ {
+-    /* x86
+-     * 清除加载的vmcs, 关闭vmx
+-     *
+-     * RISCV
+-     * 也清除vcpu，通过misa关闭虚拟机拓展
+-     */
++	/* x86
++	 * 清除加载的vmcs, 关闭vmx
++	 *
++	 * RISCV
++	 * 也清除vcpu，通过misa关闭虚拟机拓展
++	 */
+ }
+ 
+ int kvm_arch_hardware_setup(void)
+ {
+-    /*
+-     * 可能需要比如打开虚拟化等操作
+-     * 但是这里并没有
+-     *
+-     * x86建立MSR/IO映射相关结构体
+-     * 初始化vmcs配置、vpid、shadow vmcs、ept、vnmi
+-     * 为每个CPU申请VMCS结构体
+-     *
+-     * RISCV估计也需要一个控制结构体，kvm_vcpu?
+-     *!!可能需要初始化ASID
+-     * VNMI在RISCV中还没有涉及。
+-     */
++	/*
++	 * 可能需要比如打开虚拟化等操作
++	 * RISCV不需要打开虚拟化支持，默认已开
++	 *
++	 * x86建立MSR/IO映射相关结构体
++	 * 初始化vmcs配置、vpid、shadow vmcs、ept、vnmi
++	 * 为每个CPU申请VMCS结构体
++	 *
++	 * VNMI在RISCV中还没有涉及。
++	 */
+ 	return 0;
+ }
+ 
+ void kvm_arch_hardware_unsetup(void)
+ {
+-    /*
+-     * x86
+-     * 释放所有bimap数组
+-     * 释放每个cpu的kvm area(vmcs指针)
+-     */
++	/*
++	 * x86
++	 * 释放所有bimap数组
++	 * 释放每个cpu的kvm area(vmcs指针)
++	 */
+ }
+ 
+ void kvm_arch_check_processor_compat(void *rtn)
+ {
+-    /*
+-     * 这个函数是在每个CPU上都执行的
+-     *
+-     * x86是检查每个CPU的vmcs_config是否一致
+-     * RISCV可以先为空
+-     */
++	/*
++	 * 这个函数是在每个CPU上都执行的
++	 *
++	 * x86是检查每个CPU的vmcs_config是否一致
++	 * RISCV可以先为空
++	 */
+ 	*(int *)rtn = 0;
+ }
+ 
+ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
+ {
++	kvm->arch.asid = get_asid();
++
+ 	return 0;
+ }
+ 
+@@ -127,8 +129,14 @@ int kvm_arch_create_vcpu_debugfs(struct kvm_vcpu *vcpu)
+ 	return 0;
+ }
+ 
++static void kvm_free_vcpus(struct kvm* kvm)
++{
++}
++
+ void kvm_arch_destroy_vm(struct kvm *kvm)
+ {
++	kvm_free_vcpus(kvm);
++	//free mem
+ }
+ 
+ long kvm_arch_dev_ioctl(struct file *filp, unsigned int ioctl,
+@@ -138,7 +146,7 @@ long kvm_arch_dev_ioctl(struct file *filp, unsigned int ioctl,
+ }
+ 
+ int kvm_arch_create_memslot(struct kvm *kvm, struct kvm_memory_slot *slot,
+-			    unsigned long npages)
++				unsigned long npages)
+ {
+ 	return 0;
+ }
+@@ -170,11 +178,32 @@ void kvm_arch_commit_memory_region(struct kvm *kvm,
+ 
+ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
+ {
+-    return NULL;
++	int err;
++	struct kvm_vcpu *vcpu = kzalloc(sizeof(struct kvm_vcpu), GFP_KERNEL);
++
++	if (!vcpu) {
++		err = -ENOMEM;
++		goto out;
++	}
++
++	err = kvm_vcpu_init(vcpu, kvm, id);
++	if (err) {
++		goto out_free_cpu;
++	}
++	kvm_debug("kvm @ %p: create cpu %d at %p\n", kvm, id, vcpu);
++
++	return vcpu;
++
++out_free_cpu:
++	kfree(vcpu);
++out:
++	return ERR_PTR(err);
+ }
+ 
+ void kvm_arch_vcpu_free(struct kvm_vcpu *vcpu)
+ {
++	kvm_vcpu_uninit(vcpu);
++	kfree(vcpu);
+ }
+ 
+ void kvm_arch_vcpu_destroy(struct kvm_vcpu *vcpu)
+@@ -187,19 +216,22 @@ int kvm_arch_vcpu_ioctl_set_guest_debug(struct kvm_vcpu *vcpu,
+ 	return -ENOIOCTLCMD;
+ }
+ 
++extern asmlinkage void enter_virtual_machine(void *);
++
+ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
+ {
+-    return 0;
++	enter_virtual_machine(vcpu->arch.gpr);
++	return 0;
+ }
+ 
+ int kvm_arch_vcpu_ioctl_get_mpstate(struct kvm_vcpu *vcpu,
+-				    struct kvm_mp_state *mp_state)
++					struct kvm_mp_state *mp_state)
+ {
+ 	return -ENOIOCTLCMD;
+ }
+ 
+ int kvm_arch_vcpu_ioctl_set_mpstate(struct kvm_vcpu *vcpu,
+-				    struct kvm_mp_state *mp_state)
++					struct kvm_mp_state *mp_state)
+ {
+ 	return -ENOIOCTLCMD;
+ }
+@@ -207,11 +239,11 @@ int kvm_arch_vcpu_ioctl_set_mpstate(struct kvm_vcpu *vcpu,
+ long kvm_arch_vcpu_ioctl(struct file *filp, unsigned int ioctl,
+ 			 unsigned long arg)
+ {
+-    return 0;
++	return 0;
+ }
+ int kvm_vm_ioctl_get_dirty_log(struct kvm *kvm, struct kvm_dirty_log *log)
+ {
+-    return 0;
++	return 0;
+ }
+ 
+ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
+@@ -228,45 +260,49 @@ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
+ 
+ int kvm_arch_init(void *opaque)
+ {
+-    if (kvm_riscv_inited) {
+-        kvm_err("kvm: riscv kvm have been inited");
+-        return -EEXIST;
+-    }
+-
+-    kvm_riscv_inited = true;
+-
+-    /*
+-     * MIPS在这里设置kvm_mips_callbacks，用于支持不同的kvm实现
+-     * RISCV在这里先不支持多种实现
+-     * 但是也需要保证kvm_init只被有效执行一次
+-     *
+-     * !!!!!!!!!!
+-     * 应该在这里检查硬件是否支持虚拟化
+-     * 但是RISCV没有定义/实现misa的SBI接口
+-     *
+-     * x86申请了共享MSR
+-     * RISCV似乎没有共享资源
+-     *
+-     * kvm mmu初始化
+-     *  RISCV屏蔽cache的概念
+-     *!!需要ASID的管理
+-     *  页表每个虚拟机自己管理就行，包括MMIO
+-     *
+-     * kvm timer初始化
+-     *  获取了时钟频率而已
+-     *
+-     * 注册guest callbacks
+-     *  用于虚拟机判断自己的状态
+-     *
+-     * APIC初始化
+-     *!!RISCV的中断处理如何做？
+-     */
++	if (kvm_riscv_inited) {
++		kvm_err("kvm: riscv kvm have been inited");
++		return -EEXIST;
++	}
++
++	kvm_riscv_inited = true;
++
++	/*
++	 * MIPS在这里设置kvm_mips_callbacks，用于支持不同的kvm实现
++	 * RISCV在这里先不支持多种实现
++	 * 但是也需要保证kvm_init只被有效执行一次
++	 *
++	 * !!!!!!!!!!
++	 * 应该在这里检查硬件是否支持虚拟化
++	 * 但是RISCV没有定义/实现misa的SBI接口
++	 *
++	 * x86申请了共享MSR
++	 * RISCV似乎没有共享资源
++	 *
++	 * kvm mmu初始化
++	 *  RISCV屏蔽cache的概念
++	 *  需要ASID的管理
++	 *  页表每个虚拟机自己管理就行，包括MMIO
++	 *  ASID由系统统一管理
++	 *  qemu中实现，虚拟机不能知道自己的ASID
++	 *
++	 * kvm timer初始化
++	 *  !!获取了时钟频率而已
++	 *  等用到时钟的时候再回来看这部分。
++	 *  目前RISCV时钟似乎也是空的
++	 *
++	 * 注册guest callbacks
++	 *  用于虚拟机判断自己的状态
++	 *
++	 * APIC初始化
++	 * 目前RISCV的中断也是空的，没有使用。
++	 */
+ 	return 0;
+ }
+ 
+ void kvm_arch_exit(void)
+ {
+-    kvm_riscv_inited = false;
++	kvm_riscv_inited = false;
+ }
+ 
+ int kvm_arch_vcpu_ioctl_get_sregs(struct kvm_vcpu *vcpu,
+@@ -302,7 +338,7 @@ int kvm_arch_vcpu_fault(struct kvm_vcpu *vcpu, struct vm_fault *vmf)
+ 
+ int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
+ {
+-    return 0;
++	return 0;
+ }
+ 
+ int kvm_cpu_has_pending_timer(struct kvm_vcpu *vcpu)
+@@ -312,7 +348,7 @@ int kvm_cpu_has_pending_timer(struct kvm_vcpu *vcpu)
+ 
+ int kvm_arch_vcpu_dump_regs(struct kvm_vcpu *vcpu)
+ {
+-    return 0;
++	return 0;
+ }
+ 
+ int kvm_arch_vcpu_ioctl_set_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
+@@ -327,7 +363,7 @@ int kvm_arch_vcpu_ioctl_get_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
+ 
+ int kvm_arch_vcpu_init(struct kvm_vcpu *vcpu)
+ {
+-    return 0;
++	return 0;
+ }
+ 
+ void kvm_arch_vcpu_uninit(struct kvm_vcpu *vcpu)
+@@ -354,21 +390,35 @@ void kvm_arch_mmu_enable_log_dirty_pt_masked(struct kvm *kvm,
+ 
+ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+ {
+-    /*
+-     * x86加载vmcs, 更新时钟
+-     *
+-     * RISCV, 加载虚拟机的备份寄存器
+-     */
++	unsigned long flags;
++
++	local_irq_save(flags);
++
++	csr_write(hvtval, vcpu->arch.hvtval);
++	csr_write(hstatus, vcpu->arch.hstatus);
++	csr_write(hedeleg, vcpu->arch.hedeleg);
++	csr_write(hideleg, vcpu->arch.hideleg);
++	csr_write(bsstatus, vcpu->arch.sstatus);
++	csr_write(bstvec, vcpu->arch.stvec);
++	csr_write(bsip, vcpu->arch.sip);
++	csr_write(bsie, vcpu->arch.sie);
++	csr_write(bsscratch, vcpu->arch.sscratch);
++	csr_write(bsepc, vcpu->arch.sepc);
++	csr_write(bscause, vcpu->arch.scause);
++	csr_write(bstval, vcpu->arch.stval);
++	csr_write(bsatp, vcpu->arch.satp);
++
++	local_irq_restore(flags);
+ }
+ 
+ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
+ {
+-    /*
+-     * x86加载主机状态
+-     *
+-     * RISCV应该不需要做什么
+-     * 主备寄存器自动切换
+-     */
++	/*
++	 * x86加载主机状态
++	 *
++	 * RISCV应该不需要做什么
++	 * 主备寄存器自动切换
++	 */
+ }
+ 
+ void kvm_arch_sync_events(struct kvm *kvm) {}
+@@ -377,9 +427,9 @@ void kvm_arch_free_memslot(struct kvm *kvm,
+ void kvm_arch_memslots_updated(struct kvm *kvm, struct kvm_memslots *slots) {}
+ void kvm_arch_sched_in(struct kvm_vcpu *vcpu, int cpu)
+ {
+-    /*
+-     * x86执行了shrink_ple_window，完全不懂PLE是啥？？？？
+-     */
++	/*
++	 * x86执行了shrink_ple_window，完全不懂PLE是啥？？？？
++	 */
+ }
+ void kvm_arch_vcpu_blocking(struct kvm_vcpu *vcpu) {}
+ void kvm_arch_vcpu_unblocking(struct kvm_vcpu *vcpu) {}
+@@ -387,22 +437,20 @@ void kvm_arch_vcpu_block_finish(struct kvm_vcpu *vcpu) {}
+ 
+ static int __init kvm_riscv_init(void)
+ {
+-    /*
+-     * x86/VMX
+-     * 第一个参数传入了vmx_x86_ops，以此完成多种实现
+-     * 第二个参数传入sizeof(struct vcpu_vmx)
+-     *  他们是自己定义的vcpu_vmx，这个结构体只有本文件使用
+-     *      vcpu_vmx中包含一个kvm_vcpu结构体
+-     *      剩下有很多自动加载msr，虚拟机状态等信息
+-     *
+-     *  kvm_init也只是帮忙申请一个cache(作用另说)
+-     */
++	/*
++	 * x86/VMX
++	 * 第一个参数传入了vmx_x86_ops，以此完成多种实现
++	 * 第二个参数传入sizeof(struct vcpu_vmx)
++	 *  他们是自己定义的vcpu_vmx，这个结构体只有本文件使用
++	 *	  vcpu_vmx中包含一个kvm_vcpu结构体
++	 *	  剩下有很多自动加载msr，虚拟机状态等信息
++	 */
+ 	return kvm_init(NULL, sizeof(struct kvm_vcpu),
+-            __alignof__(struct kvm_vcpu), THIS_MODULE);
+-    /*
+-     * MIPS在这里还注册了kvm_mips_csr_die_notifier
+-     * 但是不知道是干什么用的
+-     */
++			__alignof__(struct kvm_vcpu), THIS_MODULE);
++	/*
++	 * MIPS在这里还注册了kvm_mips_csr_die_notifier
++	 * 但是不知道是干什么用的
++	 */
+ }
+ 
+ static void __exit kvm_riscv_exit(void)
+-- 
+2.7.4
+

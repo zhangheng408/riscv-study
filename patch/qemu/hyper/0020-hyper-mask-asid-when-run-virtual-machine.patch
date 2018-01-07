@@ -1,0 +1,49 @@
+From 7d08fff5e958286ba7876c292245999131dbda95 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sun, 7 Jan 2018 13:52:15 +0800
+Subject: [PATCH 20/20] hyper: mask asid when run virtual machine
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/op_helper.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index fcb1f50..dd002ae 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -262,10 +262,13 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
+                 1 << (TARGET_PHYS_ADDR_SPACE_BITS - PGSHIFT)) - 1);
+         }
+         if (env->priv_ver >= PRIV_VERSION_1_10_0 &&
+-            validate_vm(env, get_field(val_to_write, SATP_MODE)) &&
+-            ((val_to_write ^ env->satp) & (SATP_MODE | SATP_ASID | SATP_PPN )))
++            validate_vm(env, get_field(val_to_write, SATP_MODE)))
+         {
+             helper_tlb_flush(env);
++            if (env->virt_mode) {
++                val_to_write = set_field(val_to_write, SATP_ASID,
++                        get_field(env->satp, SATP_ASID));
++            }
+             env->satp = val_to_write;
+         }
+         break;
+@@ -539,9 +542,13 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
+         return env->scounteren;
+     case CSR_SCAUSE:
+         return env->scause;
+-    case CSR_SPTBR:
++    case CSR_SATP:
+         if (env->priv_ver >= PRIV_VERSION_1_10_0) {
+-            return env->satp;
++            target_ulong mask = SATP_MODE | SATP_PPN;
++            if (!env->virt_mode) {
++                mask |= SATP_ASID;
++            }
++            return env->satp & mask;
+         } else {
+             return env->sptbr;
+         }
+-- 
+2.7.4
+
