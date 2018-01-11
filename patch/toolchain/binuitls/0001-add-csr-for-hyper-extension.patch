@@ -1,0 +1,96 @@
+From 1ada54e6f9c22cd581a771dd5c7bc6446209d365 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 11 Jan 2018 16:46:54 +0800
+Subject: [PATCH 1/1] add csr for hyper extension
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/opcode/riscv-opc.h | 38 ++++++++++++++++++++++++++++++++++----
+ 1 file changed, 34 insertions(+), 4 deletions(-)
+
+diff --git a/include/opcode/riscv-opc.h b/include/opcode/riscv-opc.h
+index ee37d3f..b2a5f70 100644
+--- a/include/opcode/riscv-opc.h
++++ b/include/opcode/riscv-opc.h
+@@ -609,9 +609,22 @@
+ #define CSR_SSCRATCH 0x140
+ #define CSR_SEPC 0x141
+ #define CSR_SCAUSE 0x142
+-#define CSR_SBADADDR 0x143
++#define CSR_STVAL 0x143
+ #define CSR_SIP 0x144
+ #define CSR_SATP 0x180
++#define CSR_HVTVAL 0x9c0
++#define CSR_HSTATUS 0x9c1
++#define CSR_HEDELEG 0x9c2
++#define CSR_HIDELEG 0x9c3
++#define CSR_BSSTATUS 0x900
++#define CSR_BSIE 0x904
++#define CSR_BSTVEC 0x905
++#define CSR_BSSCRATCH 0x940
++#define CSR_BSEPC 0x941
++#define CSR_BSCAUSE 0x942
++#define CSR_BSTVAL 0x943
++#define CSR_BSIP 0x944
++#define CSR_BSATP 0x980
+ #define CSR_MSTATUS 0x300
+ #define CSR_MISA 0x301
+ #define CSR_MEDELEG 0x302
+@@ -622,8 +635,9 @@
+ #define CSR_MSCRATCH 0x340
+ #define CSR_MEPC 0x341
+ #define CSR_MCAUSE 0x342
+-#define CSR_MBADADDR 0x343
++#define CSR_MTVAL 0x343
+ #define CSR_MIP 0x344
++#define CSR_MVTVAL 0x345
+ #define CSR_PMPCFG0 0x3a0
+ #define CSR_PMPCFG1 0x3a1
+ #define CSR_PMPCFG2 0x3a2
+@@ -1121,9 +1135,22 @@ DECLARE_CSR(scounteren, CSR_SCOUNTEREN)
+ DECLARE_CSR(sscratch, CSR_SSCRATCH)
+ DECLARE_CSR(sepc, CSR_SEPC)
+ DECLARE_CSR(scause, CSR_SCAUSE)
+-DECLARE_CSR(sbadaddr, CSR_SBADADDR)
++DECLARE_CSR(stval, CSR_STVAL)
+ DECLARE_CSR(sip, CSR_SIP)
+ DECLARE_CSR(satp, CSR_SATP)
++DECLARE_CSR(hvtval, CSR_HVTVAL)
++DECLARE_CSR(hstatus, CSR_HSTATUS)
++DECLARE_CSR(hideleg, CSR_HIDELEG)
++DECLARE_CSR(hedeleg, CSR_HEDELEG)
++DECLARE_CSR(bsstatus, CSR_BSSTATUS)
++DECLARE_CSR(bsip, CSR_BSIP)
++DECLARE_CSR(bsie, CSR_BSIE)
++DECLARE_CSR(bstvec, CSR_BSTVEC)
++DECLARE_CSR(bsscratch, CSR_BSSCRATCH)
++DECLARE_CSR(bsepc, CSR_BSEPC)
++DECLARE_CSR(bscause, CSR_BSCAUSE)
++DECLARE_CSR(bstval, CSR_BSTVAL)
++DECLARE_CSR(bsatp, CSR_BSATP)
+ DECLARE_CSR(mstatus, CSR_MSTATUS)
+ DECLARE_CSR(misa, CSR_MISA)
+ DECLARE_CSR(medeleg, CSR_MEDELEG)
+@@ -1134,8 +1161,9 @@ DECLARE_CSR(mcounteren, CSR_MCOUNTEREN)
+ DECLARE_CSR(mscratch, CSR_MSCRATCH)
+ DECLARE_CSR(mepc, CSR_MEPC)
+ DECLARE_CSR(mcause, CSR_MCAUSE)
+-DECLARE_CSR(mbadaddr, CSR_MBADADDR)
++DECLARE_CSR(mtval, CSR_MTVAL)
+ DECLARE_CSR(mip, CSR_MIP)
++DECLARE_CSR(mvtval, CSR_MVTVAL)
+ DECLARE_CSR(pmpcfg0, CSR_PMPCFG0)
+ DECLARE_CSR(pmpcfg1, CSR_PMPCFG1)
+ DECLARE_CSR(pmpcfg2, CSR_PMPCFG2)
+@@ -1294,6 +1322,8 @@ DECLARE_CSR(mhpmcounter30h, CSR_MHPMCOUNTER30H)
+ DECLARE_CSR(mhpmcounter31h, CSR_MHPMCOUNTER31H)
+ #endif
+ #ifdef DECLARE_CSR_ALIAS
++DECLARE_CSR_ALIAS(mbadaddr, CSR_MTVAL)
++DECLARE_CSR_ALIAS(sbadaddr, CSR_STVAL)
+ DECLARE_CSR_ALIAS(sptbr, CSR_SATP)
+ #endif
+ #ifdef DECLARE_CAUSE
+-- 
+2.7.4
+
