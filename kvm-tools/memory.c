@@ -15,6 +15,8 @@ void *align_malloc(u64 size, u64 align){
 		printf("%s: alloc 0x%x + 0x%x fail\n", __func__, size, align);
 		return NULL;
 	}
+	printf("alloc mem %p/%p with %llx/%llx\n",
+			ptr, (void *)(((u64)ptr + align) & ~(align - 1)), size, align);
 	return (void *)(((u64)ptr + align) & ~(align - 1));
 }
 
@@ -37,8 +39,8 @@ static int memory_add_subregion(u64 base, u64 size, u32 slot_id, u32 flags,
 	kvm_mem.memory_size = size;
 	kvm_mem.userspace_addr = (u64)ptr;
 	ret = kvm_ioctl(vm_fd, KVM_SET_USER_MEMORY_REGION, (void *)&kvm_mem);
+	printf("%s: set user mem 0x%llx/%p, ret %d\n", __func__, base, ptr, ret);
 	if(ret < 0){
-		printf("%s: set user mem 0x%llx/%p fail", base, ptr);
 		free(ptr);
 		return -2;
 	}
@@ -59,7 +61,7 @@ int setup_memory(void){
 		printf("add rom fail\n");
 		return -1;
 	}
-	ret = memory_add_subregion(DRAM_BASE, DRAM_SIZE, 0, 0, &dram_base);
+	ret = memory_add_subregion(DRAM_BASE, DRAM_SIZE, 1, 0, &dram_base);
 	if(ret < 0){
 		printf("add dram fail\n");
 		return -2;
