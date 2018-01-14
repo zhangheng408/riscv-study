@@ -1,26 +1,23 @@
-From 06828e43be96bd07b2500e15ae7f5d976f6a6992 Mon Sep 17 00:00:00 2001
+From 12010a25566539d25d69c7544378a222a47e0c17 Mon Sep 17 00:00:00 2001
 From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
-Date: Sun, 7 Jan 2018 21:08:08 +0800
+Date: Sun, 14 Jan 2018 11:06:25 +0800
 Subject: [PATCH 7/7] add some kvm/riscv framework
 
 Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
 ---
- arch/riscv/include/asm/kvm_host.h |  90 +++----------
+ arch/riscv/include/asm/kvm_host.h |  89 +++----------
  arch/riscv/kvm/Makefile           |   1 +
- arch/riscv/kvm/entry.S            |  38 ++++++
- arch/riscv/kvm/kvm_riscv.c        | 272 ++++++++++++++++++++++----------------
- 4 files changed, 218 insertions(+), 183 deletions(-)
+ arch/riscv/kvm/entry.S            |  40 ++++++
+ arch/riscv/kvm/kvm_riscv.c        | 259 +++++++++++++++++++++-----------------
+ 4 files changed, 204 insertions(+), 185 deletions(-)
  create mode 100644 arch/riscv/kvm/entry.S
 
 diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
-index 0275052..1784f1e 100644
+index 0275052..3ae7a21 100644
 --- a/arch/riscv/include/asm/kvm_host.h
 +++ b/arch/riscv/include/asm/kvm_host.h
-@@ -107,10 +107,9 @@ struct kvm_arch_memory_slot {
- };
- 
+@@ -109,8 +109,6 @@ struct kvm_arch_memory_slot {
  struct kvm_arch {
-+    unsigned long asid;
  	/* Guest physical mm */
  	struct mm_struct gpa_mm;
 -	/* Mask of CPUs needing GPA ASID flush */
@@ -28,7 +25,7 @@ index 0275052..1784f1e 100644
  };
  
  struct kvm_arch_async_pf {
-@@ -137,76 +136,25 @@ struct kvm_mmu_memory_cache {
+@@ -137,76 +135,25 @@ struct kvm_mmu_memory_cache {
  
  
  struct kvm_vcpu_arch {
@@ -134,13 +131,15 @@ index 086e4c4..fca4e29 100644
 +obj-$(CONFIG_KVM_RISCV)	+= entry.o
 diff --git a/arch/riscv/kvm/entry.S b/arch/riscv/kvm/entry.S
 new file mode 100644
-index 0000000..ae3cd42
+index 0000000..a9014cb
 --- /dev/null
 +++ b/arch/riscv/kvm/entry.S
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,40 @@
 +#include <asm/asm.h>
 +#include <asm/csr.h>
 +#include <asm/asm-offsets.h>
++
++#include <linux/linkage.h>
 +
 +ENTRY(enter_virtual_machine)
 +	REG_L x1,  PT_RA(a0)
@@ -177,15 +176,14 @@ index 0000000..ae3cd42
 +	hret
 +ENDPROC(enter_virtual_machine)
 diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
-index a0c4354..64fb46c 100644
+index a0c4354..8789b58 100644
 --- a/arch/riscv/kvm/kvm_riscv.c
 +++ b/arch/riscv/kvm/kvm_riscv.c
-@@ -26,16 +26,18 @@
+@@ -26,94 +26,100 @@
  #include <asm/pgalloc.h>
  #include <asm/pgtable.h>
  #include <asm/sbi.h>
 +#include <asm/csr.h>
-+#include <asm/asid.h>
  
  #include <linux/kvm_host.h>
  
@@ -203,7 +201,33 @@ index a0c4354..64fb46c 100644
  	{NULL}
  };
  
-@@ -56,64 +58,64 @@ int kvm_arch_vcpu_should_kick(struct kvm_vcpu *vcpu)
+ int kvm_arch_vcpu_runnable(struct kvm_vcpu *vcpu)
+ {
+-	return false;
++	/*
++	 * always runnable
++	 */
++	return true;
+ }
+ 
+ bool kvm_arch_vcpu_in_kernel(struct kvm_vcpu *vcpu)
+ {
++	/*
++	 * I don't known how to get current privilege level.
++	 */
+ 	return false;
+ }
+ 
+ int kvm_arch_vcpu_should_kick(struct kvm_vcpu *vcpu)
+ {
+-	return 1;
++	if (vcpu->mode == IN_GUEST_MODE)
++	{
++		vcpu->mode = EXITING_GUEST_MODE;
++		return 1;
++	}
++	return 0;
+ }
  
  int kvm_arch_hardware_enable(void)
  {
@@ -214,10 +238,7 @@ index a0c4354..64fb46c 100644
 -     * 更新每个VCPU的时钟
 -     */
 +	/*
-+	 * x86
-+	 * 更新共享MSR
-+	 * 初始化加载/阻塞vcpu列表
-+	 * 更新每个VCPU的时钟
++	 * x86: VMX_ON
 +	 */
  	return 0;
  }
@@ -230,11 +251,8 @@ index a0c4354..64fb46c 100644
 -     * RISCV
 -     * 也清除vcpu，通过misa关闭虚拟机拓展
 -     */
-+	/* x86
-+	 * 清除加载的vmcs, 关闭vmx
-+	 *
-+	 * RISCV
-+	 * 也清除vcpu，通过misa关闭虚拟机拓展
++	/*
++	 * x86: VM_CLEAR, VMX_OFF
 +	 */
  }
  
@@ -253,14 +271,13 @@ index a0c4354..64fb46c 100644
 -     * VNMI在RISCV中还没有涉及。
 -     */
 +	/*
-+	 * 可能需要比如打开虚拟化等操作
-+	 * RISCV不需要打开虚拟化支持，默认已开
++	 * RISCV: no need to setup
++	 * loaded vpcu id(ptr?) for improve.
 +	 *
-+	 * x86建立MSR/IO映射相关结构体
++	 * x86: IO/MSR bitmap, which
++	 * 建立MSR/IO映射相关结构体
 +	 * 初始化vmcs配置、vpid、shadow vmcs、ept、vnmi
 +	 * 为每个CPU申请VMCS结构体
-+	 *
-+	 * VNMI在RISCV中还没有涉及。
 +	 */
  	return 0;
  }
@@ -276,6 +293,8 @@ index a0c4354..64fb46c 100644
 +	 * x86
 +	 * 释放所有bimap数组
 +	 * 释放每个cpu的kvm area(vmcs指针)
++	 *
++	 * RISCV: release per cpu vcpu id
 +	 */
  }
  
@@ -288,22 +307,21 @@ index a0c4354..64fb46c 100644
 -     * RISCV可以先为空
 -     */
 +	/*
-+	 * 这个函数是在每个CPU上都执行的
-+	 *
-+	 * x86是检查每个CPU的vmcs_config是否一致
-+	 * RISCV可以先为空
++	 * RISCV: need to check H extension in MISA
 +	 */
  	*(int *)rtn = 0;
  }
  
  int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
  {
-+	kvm->arch.asid = get_asid();
-+
++	/*
++	 * init kvm->arch.*
++	 * kvm_mmu_init_vm?
++	 */
  	return 0;
  }
  
-@@ -127,8 +129,14 @@ int kvm_arch_create_vcpu_debugfs(struct kvm_vcpu *vcpu)
+@@ -127,8 +133,15 @@ int kvm_arch_create_vcpu_debugfs(struct kvm_vcpu *vcpu)
  	return 0;
  }
  
@@ -315,10 +333,11 @@ index a0c4354..64fb46c 100644
  {
 +	kvm_free_vcpus(kvm);
 +	//free mem
++	//kvm_mmu_uninit_vm ?
  }
  
  long kvm_arch_dev_ioctl(struct file *filp, unsigned int ioctl,
-@@ -138,7 +146,7 @@ long kvm_arch_dev_ioctl(struct file *filp, unsigned int ioctl,
+@@ -138,7 +151,7 @@ long kvm_arch_dev_ioctl(struct file *filp, unsigned int ioctl,
  }
  
  int kvm_arch_create_memslot(struct kvm *kvm, struct kvm_memory_slot *slot,
@@ -327,7 +346,7 @@ index a0c4354..64fb46c 100644
  {
  	return 0;
  }
-@@ -170,11 +178,32 @@ void kvm_arch_commit_memory_region(struct kvm *kvm,
+@@ -170,15 +183,37 @@ void kvm_arch_commit_memory_region(struct kvm *kvm,
  
  struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
  {
@@ -361,7 +380,12 @@ index a0c4354..64fb46c 100644
  }
  
  void kvm_arch_vcpu_destroy(struct kvm_vcpu *vcpu)
-@@ -187,19 +216,22 @@ int kvm_arch_vcpu_ioctl_set_guest_debug(struct kvm_vcpu *vcpu,
+ {
++	//unsetup, uninit, free
+ }
+ 
+ int kvm_arch_vcpu_ioctl_set_guest_debug(struct kvm_vcpu *vcpu,
+@@ -187,19 +222,23 @@ int kvm_arch_vcpu_ioctl_set_guest_debug(struct kvm_vcpu *vcpu,
  	return -ENOIOCTLCMD;
  }
  
@@ -371,6 +395,7 @@ index a0c4354..64fb46c 100644
  {
 -    return 0;
 +	enter_virtual_machine(vcpu->arch.gpr);
++	// when goes into here?
 +	return 0;
  }
  
@@ -387,7 +412,7 @@ index a0c4354..64fb46c 100644
  {
  	return -ENOIOCTLCMD;
  }
-@@ -207,11 +239,11 @@ int kvm_arch_vcpu_ioctl_set_mpstate(struct kvm_vcpu *vcpu,
+@@ -207,11 +246,11 @@ int kvm_arch_vcpu_ioctl_set_mpstate(struct kvm_vcpu *vcpu,
  long kvm_arch_vcpu_ioctl(struct file *filp, unsigned int ioctl,
  			 unsigned long arg)
  {
@@ -401,7 +426,7 @@ index a0c4354..64fb46c 100644
  }
  
  long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
-@@ -228,45 +260,49 @@ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
+@@ -228,45 +267,24 @@ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
  
  int kvm_arch_init(void *opaque)
  {
@@ -446,34 +471,8 @@ index a0c4354..64fb46c 100644
 +	kvm_riscv_inited = true;
 +
 +	/*
-+	 * MIPS在这里设置kvm_mips_callbacks，用于支持不同的kvm实现
-+	 * RISCV在这里先不支持多种实现
-+	 * 但是也需要保证kvm_init只被有效执行一次
-+	 *
-+	 * !!!!!!!!!!
-+	 * 应该在这里检查硬件是否支持虚拟化
-+	 * 但是RISCV没有定义/实现misa的SBI接口
-+	 *
-+	 * x86申请了共享MSR
-+	 * RISCV似乎没有共享资源
-+	 *
-+	 * kvm mmu初始化
-+	 *  RISCV屏蔽cache的概念
-+	 *  需要ASID的管理
-+	 *  页表每个虚拟机自己管理就行，包括MMIO
-+	 *  ASID由系统统一管理
-+	 *  qemu中实现，虚拟机不能知道自己的ASID
-+	 *
-+	 * kvm timer初始化
-+	 *  !!获取了时钟频率而已
-+	 *  等用到时钟的时候再回来看这部分。
-+	 *  目前RISCV时钟似乎也是空的
-+	 *
-+	 * 注册guest callbacks
-+	 *  用于虚拟机判断自己的状态
-+	 *
-+	 * APIC初始化
-+	 * 目前RISCV的中断也是空的，没有使用。
++	 * alloc per cpu vcpu id
++	 * alloc here or kvm_main?
 +	 */
  	return 0;
  }
@@ -481,11 +480,18 @@ index a0c4354..64fb46c 100644
  void kvm_arch_exit(void)
  {
 -    kvm_riscv_inited = false;
++	// free something
 +	kvm_riscv_inited = false;
  }
  
  int kvm_arch_vcpu_ioctl_get_sregs(struct kvm_vcpu *vcpu,
-@@ -302,7 +338,7 @@ int kvm_arch_vcpu_fault(struct kvm_vcpu *vcpu, struct vm_fault *vmf)
+@@ -297,12 +315,13 @@ int kvm_arch_vcpu_ioctl_set_fpu(struct kvm_vcpu *vcpu, struct kvm_fpu *fpu)
+ 
+ int kvm_arch_vcpu_fault(struct kvm_vcpu *vcpu, struct vm_fault *vmf)
+ {
++	// mem management
+ 	return VM_FAULT_SIGBUS;
+ }
  
  int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
  {
@@ -494,7 +500,7 @@ index a0c4354..64fb46c 100644
  }
  
  int kvm_cpu_has_pending_timer(struct kvm_vcpu *vcpu)
-@@ -312,7 +348,7 @@ int kvm_cpu_has_pending_timer(struct kvm_vcpu *vcpu)
+@@ -312,7 +331,7 @@ int kvm_cpu_has_pending_timer(struct kvm_vcpu *vcpu)
  
  int kvm_arch_vcpu_dump_regs(struct kvm_vcpu *vcpu)
  {
@@ -503,16 +509,30 @@ index a0c4354..64fb46c 100644
  }
  
  int kvm_arch_vcpu_ioctl_set_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
-@@ -327,7 +363,7 @@ int kvm_arch_vcpu_ioctl_get_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
+@@ -327,11 +346,13 @@ int kvm_arch_vcpu_ioctl_get_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
  
  int kvm_arch_vcpu_init(struct kvm_vcpu *vcpu)
  {
 -    return 0;
++	// init vcpu.arch
 +	return 0;
  }
  
  void kvm_arch_vcpu_uninit(struct kvm_vcpu *vcpu)
-@@ -354,21 +390,35 @@ void kvm_arch_mmu_enable_log_dirty_pt_masked(struct kvm *kvm,
+ {
++	// uninit vcpu.arch
+ }
+ 
+ int kvm_arch_vcpu_ioctl_translate(struct kvm_vcpu *vcpu,
+@@ -343,6 +364,7 @@ int kvm_arch_vcpu_ioctl_translate(struct kvm_vcpu *vcpu,
+ /* Initial guest state */
+ int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
+ {
++	// vcpu reset, mmu setup
+ 	return 0;
+ }
+ 
+@@ -354,21 +376,32 @@ void kvm_arch_mmu_enable_log_dirty_pt_masked(struct kvm *kvm,
  
  void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
  {
@@ -551,15 +571,12 @@ index a0c4354..64fb46c 100644
 -     * 主备寄存器自动切换
 -     */
 +	/*
-+	 * x86加载主机状态
-+	 *
-+	 * RISCV应该不需要做什么
-+	 * 主备寄存器自动切换
++	 * csr_read
 +	 */
  }
  
  void kvm_arch_sync_events(struct kvm *kvm) {}
-@@ -377,9 +427,9 @@ void kvm_arch_free_memslot(struct kvm *kvm,
+@@ -377,9 +410,9 @@ void kvm_arch_free_memslot(struct kvm *kvm,
  void kvm_arch_memslots_updated(struct kvm *kvm, struct kvm_memslots *slots) {}
  void kvm_arch_sched_in(struct kvm_vcpu *vcpu, int cpu)
  {
@@ -567,12 +584,12 @@ index a0c4354..64fb46c 100644
 -     * x86执行了shrink_ple_window，完全不懂PLE是啥？？？？
 -     */
 +	/*
-+	 * x86执行了shrink_ple_window，完全不懂PLE是啥？？？？
++	 * useless
 +	 */
  }
  void kvm_arch_vcpu_blocking(struct kvm_vcpu *vcpu) {}
  void kvm_arch_vcpu_unblocking(struct kvm_vcpu *vcpu) {}
-@@ -387,22 +437,20 @@ void kvm_arch_vcpu_block_finish(struct kvm_vcpu *vcpu) {}
+@@ -387,22 +420,20 @@ void kvm_arch_vcpu_block_finish(struct kvm_vcpu *vcpu) {}
  
  static int __init kvm_riscv_init(void)
  {
