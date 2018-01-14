@@ -161,7 +161,7 @@ linux-make:
 
 kvm-tool-make:
 	@$(CROSS_PREFIX)gcc								\
-		$(DIR_RISCV)/kvm-tools/kvm-tool.c			\
+		$(DIR_RISCV)/kvm-tools/*.c					\
 		-static										\
 		-o $(DIR_INSTALL)/kvm-tool
 
