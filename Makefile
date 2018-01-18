@@ -15,6 +15,7 @@ REPO_LINUX			?= $(REPO_RISCV)/riscv-linux
 QEMU_BASE			:= 2ab9055
 LINUX_BASE			:= 50c4c4e
 TOOLS_BASE			:= ccf7c12
+BINUTILS_BASE		:= d0176cb
 
 BUSYBOX_VERSION		:= 1.26.2
 BUSYBOX_TARBALL		:= /pub/backup/busybox-$(BUSYBOX_VERSION).tar.bz2
@@ -22,6 +23,7 @@ BUSYBOX_TARBALL		:= /pub/backup/busybox-$(BUSYBOX_VERSION).tar.bz2
 DIR_LINUX			?= $(DIR_WORKING)/riscv-linux
 DIR_TOOLS			?= $(DIR_WORKING)/riscv-tools
 DIR_TOOLCHAIN		?= $(DIR_TOOLS)/riscv-gnu-toolchain
+DIR_BINUTILS		?= $(DIR_TOOLCHAIN)/riscv-binutils-gdb
 DIR_QEMU			?= $(DIR_TOOLCHAIN)/riscv-qemu
 DIR_PK				?= $(DIR_TOOLS)/riscv-pk
 DIR_FESVR			?= $(DIR_TOOLS)/riscv-fesvr
@@ -46,6 +48,7 @@ all:
 highfive:
 	@make clean
 	@make tools-new
+	@make toolchain-update
 	@make toolchain-make
 	@make linux-update
 	@make linux-headers-install
@@ -66,6 +69,15 @@ tools-new:
 	@echo "clone new repo"
 	@cd $(DIR_WORKING);												\
 		git clone --recursive $(REPO_TOOLS)
+
+toolchain-update:
+	@echo "clean git dir ..."
+	@cd $(DIR_BINUTILS);											\
+		git clean -qndf;											\
+		git checkout -fB mprc $(BINUTILS_BASE)
+	@echo "apply binutils patch ..."
+	@cd $(DIR_BINUTILS);											\
+		git am $(DIR_RISCV)/patch/toolchain/binuitls/*
 
 toolchain-make:
 	@if [ -e $(DIR_INSTALL)/riscv-gnu-toolchain ]; then 			\
