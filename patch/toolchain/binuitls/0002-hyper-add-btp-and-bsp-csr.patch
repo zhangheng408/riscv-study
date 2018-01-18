@@ -1,0 +1,35 @@
+From f6ee0d59f72d9efff88f6469a92db71479f23fde Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 18 Jan 2018 15:59:17 +0800
+Subject: [PATCH 2/2] hyper: add btp and bsp csr
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/opcode/riscv-opc.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/include/opcode/riscv-opc.h b/include/opcode/riscv-opc.h
+index b2a5f70..b9bae12 100644
+--- a/include/opcode/riscv-opc.h
++++ b/include/opcode/riscv-opc.h
+@@ -617,6 +617,8 @@
+ #define CSR_HEDELEG 0x9c2
+ #define CSR_HIDELEG 0x9c3
+ #define CSR_BSSTATUS 0x900
++#define CSR_BTP 0x901
++#define CSR_BSP 0x902
+ #define CSR_BSIE 0x904
+ #define CSR_BSTVEC 0x905
+ #define CSR_BSSCRATCH 0x940
+@@ -1143,6 +1145,8 @@ DECLARE_CSR(hstatus, CSR_HSTATUS)
+ DECLARE_CSR(hideleg, CSR_HIDELEG)
+ DECLARE_CSR(hedeleg, CSR_HEDELEG)
+ DECLARE_CSR(bsstatus, CSR_BSSTATUS)
++DECLARE_CSR(btp, CSR_BTP)
++DECLARE_CSR(bsp, CSR_BSP)
+ DECLARE_CSR(bsip, CSR_BSIP)
+ DECLARE_CSR(bsie, CSR_BSIE)
+ DECLARE_CSR(bstvec, CSR_BSTVEC)
+-- 
+2.7.4
+
