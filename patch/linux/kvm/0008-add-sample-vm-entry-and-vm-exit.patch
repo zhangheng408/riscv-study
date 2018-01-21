@@ -1,0 +1,387 @@
+From 593bb48073f7ca6b755b1106d86f13ea76c9ca9b Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sun, 21 Jan 2018 23:32:36 +0800
+Subject: [PATCH 8/8] add sample vm entry and vm exit
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+
+need to carefully modify it, to make it work.
+---
+ arch/riscv/include/asm/kvm_host.h | 30 ++++++++++----
+ arch/riscv/kvm/entry.S            | 83 +++++++++++++++++++++++++++++++++++++
+ arch/riscv/kvm/kvm_riscv.c        | 87 +++++++++++++++++++++++++++++++++------
+ virt/kvm/kvm_main.c               | 11 +++++
+ 4 files changed, 189 insertions(+), 22 deletions(-)
+
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index 3ae7a21..8c2b1ad 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -105,8 +105,20 @@ struct kvm_vcpu_stat {
+ 
+ struct kvm_arch_memory_slot {
+ };
++/*
++ * copy from qemu
++ */
++#define ROM_BASE						0x1000
++#define EXT_IO_BASE						0x40000000
++#define DRAM_BASE						0x80000000
++
++#define KVM_RISCV_DEFAULT_FDT			(0)
++#define KVM_RISCV_DEFAULT_KERNEL_ENTRY	(DRAM_BASE + PAGE_OFFSET)
+ 
+ struct kvm_arch {
++	unsigned long fdt;
++	unsigned long kernel_entry;
++
+ 	/* Guest physical mm */
+ 	struct mm_struct gpa_mm;
+ };
+@@ -135,16 +147,10 @@ struct kvm_mmu_memory_cache {
+ 
+ 
+ struct kvm_vcpu_arch {
+-	/* GPRS */
+-	unsigned long gpr[32];
+-
+-	/* Host status */
+-	unsigned long hvtval;
+-	unsigned long hstatus;
+-	unsigned long hedeleg;
+-	unsigned long hideleg;
+-
+ 	/* Guest context */
++	unsigned long gpr[32];
++	unsigned long pc;
++	unsigned long prv;
+ 	unsigned long sstatus;
+ 	unsigned long stvec;
+ 	unsigned long sip;
+@@ -154,6 +160,12 @@ struct kvm_vcpu_arch {
+ 	unsigned long scause;
+ 	unsigned long stval;
+ 	unsigned long satp;
++
++	/* Hypervisor context */
++	unsigned long hvtval;
++	unsigned long hstatus;
++	unsigned long hedeleg;
++	unsigned long hideleg;
+ };
+ 
+ int kvm_arch_interrupt_allowed(struct kvm_vcpu *vcpu);
+diff --git a/arch/riscv/kvm/entry.S b/arch/riscv/kvm/entry.S
+index a9014cb..8e99002 100644
+--- a/arch/riscv/kvm/entry.S
++++ b/arch/riscv/kvm/entry.S
+@@ -4,7 +4,28 @@
+ 
+ #include <linux/linkage.h>
+ 
++/*
++ * VCPU's supervisor CSR has been loaded in kvm_arch_vcpu_load.
++ * Now load gprs and satp for VM.
++ */
+ ENTRY(enter_virtual_machine)
++	/* Store host context. */
++	addi sp, sp, -(PT_SIZE_ON_STACK)
++	REG_S ra,  PT_RA(sp)
++	REG_S x8,  PT_S0(sp)
++	REG_S x9,  PT_S1(sp)
++	REG_S x10, PT_A0(sp) /* Save kvm_vcpu_arch pointer. */
++	REG_S x18, PT_S2(sp)
++	REG_S x19, PT_S3(sp)
++	REG_S x20, PT_S4(sp)
++	REG_S x21, PT_S5(sp)
++	REG_S x22, PT_S6(sp)
++	REG_S x23, PT_S7(sp)
++	REG_S x24, PT_S8(sp)
++	REG_S x25, PT_S9(sp)
++	REG_S x26, PT_S10(sp)
++	REG_S x27, PT_S11(sp)
++	/* restore guest General Purpose Registers. */
+ 	REG_L x1,  PT_RA(a0)
+ 	REG_L x2,  PT_SP(a0)
+ 	REG_L x3,  PT_GP(a0)
+@@ -36,5 +57,67 @@ ENTRY(enter_virtual_machine)
+ 	REG_L x30, PT_T5(a0)
+ 	REG_L x31, PT_T6(a0)
+ 	REG_L x10, PT_A0(a0)
++	/* Jump to Guest now. */
+ 	hret
++
++ret_from_guest:
++	/* Save A0 in Stack, and load kvm_vcpu_arch pointer to A0. */
++	REG_S x10, -PT_RA(sp)
++	REG_L x10, PT_A0(sp)
++	/* Store guest General Purpose Registers. */
++	REG_S x1,  PT_RA(a0)
++	/* SP(X2) has been saved to bsp. */
++	REG_S x3,  PT_GP(a0)
++	/* TP(X3) has been saved to btp. */
++	REG_S x5,  PT_T0(a0)
++	REG_S x6,  PT_T1(a0)
++	REG_S x7,  PT_T2(a0)
++	REG_S x8,  PT_S0(a0)
++	REG_S x9,  PT_S1(a0)
++	REG_S x11, PT_A1(a0)
++	/* A0 have saved in Stack. */
++	REG_S x12, PT_A2(a0)
++	REG_S x13, PT_A3(a0)
++	REG_S x14, PT_A4(a0)
++	REG_S x15, PT_A5(a0)
++	REG_S x16, PT_A6(a0)
++	REG_S x17, PT_A7(a0)
++	REG_S x18, PT_S2(a0)
++	REG_S x19, PT_S3(a0)
++	REG_S x20, PT_S4(a0)
++	REG_S x21, PT_S5(a0)
++	REG_S x22, PT_S6(a0)
++	REG_S x23, PT_S7(a0)
++	REG_S x24, PT_S8(a0)
++	REG_S x25, PT_S9(a0)
++	REG_S x26, PT_S10(a0)
++	REG_S x27, PT_S11(a0)
++	REG_S x28, PT_T3(a0)
++	REG_S x29, PT_T4(a0)
++	REG_S x30, PT_T5(a0)
++	REG_S x31, PT_T6(a0)
++	/* Save guest A0/TP/SP in kvm_vcpu_arch. */
++	REG_L t0,  -PT_RA(sp)
++	REG_S t0,  PT_A0(a0)
++	csrr t1,   btp
++	REG_S t0,  PT_TP(a0)
++	csrr t2,   bsp
++	REG_S t0,  PT_SP(a0)
++	/* Load host context. */
++	REG_L ra,  PT_RA(sp)
++	REG_L x8,  PT_S0(sp)
++	REG_L x9,  PT_S1(sp)
++	REG_L x10, PT_A0(sp) /* Save kvm_vcpu_arch pointer. */
++	REG_L x18, PT_S2(sp)
++	REG_L x19, PT_S3(sp)
++	REG_L x20, PT_S4(sp)
++	REG_L x21, PT_S5(sp)
++	REG_L x22, PT_S6(sp)
++	REG_L x23, PT_S7(sp)
++	REG_L x24, PT_S8(sp)
++	REG_L x25, PT_S9(sp)
++	REG_L x26, PT_S10(sp)
++	REG_L x27, PT_S11(sp)
++	addi sp, sp, -(PT_SIZE_ON_STACK)
++	ret
+ ENDPROC(enter_virtual_machine)
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index 8789b58..b40e338 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -116,10 +116,14 @@ void kvm_arch_check_processor_compat(void *rtn)
+ 
+ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
+ {
+-	/*
+-	 * init kvm->arch.*
+-	 * kvm_mmu_init_vm?
+-	 */
++	/* Allocate page table to map GPA -> HPA */
++	kvm->arch.gpa_mm.pgd = pgd_alloc(&kvm->arch.gpa_mm);
++	if (kvm->arch.gpa_mm.pgd == NULL)
++		return -ENOMEM;
++
++	kvm->arch.fdt = KVM_RISCV_DEFAULT_FDT;
++	kvm->arch.kernel_entry = KVM_RISCV_DEFAULT_KERNEL_ENTRY;
++
+ 	return 0;
+ }
+ 
+@@ -140,8 +144,11 @@ static void kvm_free_vcpus(struct kvm* kvm)
+ void kvm_arch_destroy_vm(struct kvm *kvm)
+ {
+ 	kvm_free_vcpus(kvm);
+-	//free mem
+-	//kvm_mmu_uninit_vm ?
++	/*
++	 * free pte?
++	 * riscv no need to flush tlb and cache
++	 */
++	pgd_free(&kvm->arch.gpa_mm, kvm->arch.gpa_mm.pgd);
+ }
+ 
+ long kvm_arch_dev_ioctl(struct file *filp, unsigned int ioctl,
+@@ -226,8 +233,26 @@ extern asmlinkage void enter_virtual_machine(void *);
+ 
+ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
+ {
+-	enter_virtual_machine(vcpu->arch.gpr);
+-	// when goes into here?
++	for(;;)
++	{
++		/*
++		 * setup sstatus, prepare going into vm.
++		 * leave sstatus.spie as before.
++		 */
++		if(vcpu->arch.prv)
++		{
++			csr_set(sstatus, SR_PS);
++		}
++		else
++		{
++			csr_clear(sstatus, SR_PS);
++		}
++		csr_write(sepc, vcpu->arch.pc);
++
++		enter_virtual_machine(&vcpu->arch);
++		printk("first exit\n");
++		return 0;
++	}
+ 	return 0;
+ }
+ 
+@@ -346,7 +371,6 @@ int kvm_arch_vcpu_ioctl_get_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
+ 
+ int kvm_arch_vcpu_init(struct kvm_vcpu *vcpu)
+ {
+-	// init vcpu.arch
+ 	return 0;
+ }
+ 
+@@ -364,7 +388,25 @@ int kvm_arch_vcpu_ioctl_translate(struct kvm_vcpu *vcpu,
+ /* Initial guest state */
+ int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
+ {
+-	// vcpu reset, mmu setup
++	struct kvm* kvm = vcpu->kvm;
++
++	/*
++	 * This method should implement RESET, and PC should be set to reset vector.
++	 * But we boot kernel directly now, and simply set PC to kernel entry.
++	 */
++	vcpu->arch.pc = kvm->arch.kernel_entry;
++	vcpu->arch.prv = SR_PS;
++
++	vcpu->arch.hedeleg = EXC_INST_MISALIGNED
++		| EXC_INST_ACCESS
++		| EXC_LOAD_ACCESS
++		| EXC_STORE_ACCESS
++		| EXC_SYSCALL //Environment call from U-mode
++		| EXC_INST_PAGE_FAULT
++		| EXC_LOAD_PAGE_FAULT
++		| EXC_STORE_PAGE_FAULT;
++	vcpu->arch.hideleg = SIE_SSIE | SIE_STIE;
++
+ 	return 0;
+ }
+ 
+@@ -384,6 +426,8 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+ 	csr_write(hstatus, vcpu->arch.hstatus);
+ 	csr_write(hedeleg, vcpu->arch.hedeleg);
+ 	csr_write(hideleg, vcpu->arch.hideleg);
++	csr_write(bsp, vcpu->arch.gpr[2]);
++	csr_write(btp, vcpu->arch.gpr[4]);
+ 	csr_write(bsstatus, vcpu->arch.sstatus);
+ 	csr_write(bstvec, vcpu->arch.stvec);
+ 	csr_write(bsip, vcpu->arch.sip);
+@@ -393,15 +437,32 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+ 	csr_write(bscause, vcpu->arch.scause);
+ 	csr_write(bstval, vcpu->arch.stval);
+ 	csr_write(bsatp, vcpu->arch.satp);
++	csr_write(sgatp, virt_to_pfn(vcpu->kvm->arch.gpa_mm.pgd) | SPTBR_MODE);
+ 
+ 	local_irq_restore(flags);
+ }
+ 
+ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
+ {
+-	/*
+-	 * csr_read
+-	 */
++	unsigned long flags;
++
++	local_irq_save(flags);
++
++	vcpu->arch.hvtval = csr_read(hvtval);
++	vcpu->arch.hstatus = csr_read(hstatus);
++	vcpu->arch.hedeleg = csr_read(hedeleg);
++	vcpu->arch.hideleg = csr_read(hideleg);
++	vcpu->arch.sstatus = csr_read(bsstatus);
++	vcpu->arch.stvec = csr_read(bstvec);
++	vcpu->arch.sip = csr_read(bsip);
++	vcpu->arch.sie = csr_read(bsie);
++	vcpu->arch.sscratch = csr_read(bsscratch);
++	vcpu->arch.sepc = csr_read(bsepc);
++	vcpu->arch.scause = csr_read(bscause);
++	vcpu->arch.stval = csr_read(bstval);
++	vcpu->arch.satp = csr_read(bsatp);
++
++	local_irq_restore(flags);
+ }
+ 
+ void kvm_arch_sync_events(struct kvm *kvm) {}
+diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
+index 210bf82..777d6e8 100644
+--- a/virt/kvm/kvm_main.c
++++ b/virt/kvm/kvm_main.c
+@@ -911,6 +911,9 @@ int __kvm_set_memory_region(struct kvm *kvm,
+ 	r = -EINVAL;
+ 	as_id = mem->slot >> 16;
+ 	id = (u16)mem->slot;
++	printk("%s: mem slot %x, %llx/%llx, len %llx, flags %x",
++			__func__, mem->slot, mem->guest_phys_addr, mem->userspace_addr,
++			mem->memory_size, mem->flags);
+ 
+ 	/* General sanity checks */
+ 	if (mem->memory_size & (PAGE_SIZE - 1))
+@@ -942,6 +945,9 @@ int __kvm_set_memory_region(struct kvm *kvm,
+ 	new.base_gfn = base_gfn;
+ 	new.npages = npages;
+ 	new.flags = mem->flags;
++	printk("%s: slot %d,%llx,%lx,%x -> %d,%llx,%lx,%x\n",
++			__func__, old.id, old.base_gfn, old.npages, old.flags,
++			new.id, new.base_gfn, new.npages, new.flags);
+ 
+ 	if (npages) {
+ 		if (!old.npages)
+@@ -2544,6 +2550,7 @@ static long kvm_vcpu_ioctl(struct file *filp,
+ 	struct kvm_fpu *fpu = NULL;
+ 	struct kvm_sregs *kvm_sregs = NULL;
+ 
++	printk("kvm vcpu ioctl 0x%x, arg 0x%lx\n", ioctl, arg);
+ 	if (vcpu->kvm->mm != current->mm)
+ 		return -EIO;
+ 
+@@ -2964,6 +2971,7 @@ static long kvm_vm_ioctl(struct file *filp,
+ 	void __user *argp = (void __user *)arg;
+ 	int r;
+ 
++	printk("kvm vm ioctl 0x%x, arg 0x%lx\n", ioctl, arg);
+ 	if (kvm->mm != current->mm)
+ 		return -EIO;
+ 	switch (ioctl) {
+@@ -2977,6 +2985,7 @@ static long kvm_vm_ioctl(struct file *filp,
+ 		if (copy_from_user(&kvm_userspace_mem, argp,
+ 						sizeof(kvm_userspace_mem)))
+ 			goto out;
++		printk("mem slot %x\n", kvm_userspace_mem.slot);
+ 
+ 		r = kvm_vm_ioctl_set_memory_region(kvm, &kvm_userspace_mem);
+ 		break;
+@@ -3122,6 +3131,7 @@ static long kvm_vm_ioctl(struct file *filp,
+ 		r = kvm_arch_vm_ioctl(filp, ioctl, arg);
+ 	}
+ out:
++	printk("kvm vm ioctl 0x%x, arg 0x%lx, ret %x\n", ioctl, arg, r);
+ 	return r;
+ }
+ 
+@@ -3225,6 +3235,7 @@ static long kvm_dev_ioctl(struct file *filp,
+ {
+ 	long r = -EINVAL;
+ 
++	printk("kvm dev ioctl 0x%x, arg 0x%lx\n", ioctl, arg);
+ 	switch (ioctl) {
+ 	case KVM_GET_API_VERSION:
+ 		if (arg)
+-- 
+2.7.4
+
