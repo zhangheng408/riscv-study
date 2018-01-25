@@ -1,0 +1,212 @@
+From cb9d8cf08773adfef076a003cd5d5ddddbbb8ad4 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 25 Jan 2018 17:11:09 +0800
+Subject: [PATCH 23/23] first try for vm entry and vm exit
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/disas/riscv-opc.h |  1 +
+ target-riscv/cpu.h        | 11 ++++++--
+ target-riscv/helper.c     | 66 ++++++++++++++++++++++++++++++++++-------------
+ target-riscv/op_helper.c  |  9 +++++--
+ 4 files changed, 65 insertions(+), 22 deletions(-)
+
+diff --git a/include/disas/riscv-opc.h b/include/disas/riscv-opc.h
+index bbe6d24..423a528 100644
+--- a/include/disas/riscv-opc.h
++++ b/include/disas/riscv-opc.h
+@@ -557,6 +557,7 @@
+ #define CSR_BSSTATUS 0x900
+ #define CSR_BTP 0x901
+ #define CSR_BSP 0x902
++#define CSR_BPC 0x903
+ #define CSR_BSIE 0x904
+ #define CSR_BSTVEC 0x905
+ #define CSR_BSSCRATCH 0x940
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index a1dfff7..14c432e 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -96,13 +96,20 @@ typedef struct CPURISCVState {
+     uint64_t fpr[32]; /* assume both F and D extensions */
+     target_ulong pc;
+     target_ulong load_res;
++    union{
++        target_ulong badaddr;
++        target_ulong tval;
++    };
++    union{
++        target_ulong vbadaddr;
++        target_ulong vtval;
++    };
+ 
+     target_ulong frm;
+     target_ulong fstatus;
+     target_ulong fflags;
+ 
+     union{
+-        target_ulong badaddr;
+         target_ulong mbadaddr;  /* until: priv-1.9.1 */
+         target_ulong mtval;   /* since: priv-1.10.0 */
+     };
+@@ -194,6 +201,7 @@ typedef struct CPURISCVState {
+      */
+     target_ulong btp;
+     target_ulong bsp;
++    target_ulong bpc;
+     /*
+      * Background Supervisor Interrupt Registers
+      */
+@@ -227,7 +235,6 @@ typedef struct CPURISCVState {
+      * Supervisor Guest(Stage 2) Address Translation and Protection Register
+      */
+     target_ulong sgatp;
+-    target_ulong host_pc;
+     /* end hypervisor csr*/
+ #endif
+ 
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index 987b6aa..eccb810 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -558,6 +558,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+ 
+     target_ulong bit = fixed_cause;
+     target_ulong deleg = env->medeleg;
++    target_ulong hdeleg = deleg & env->hedeleg;
+ 
+     int hasbadaddr =
+         (fixed_cause == RISCV_EXCP_INST_ADDR_MIS) ||
+@@ -573,13 +574,56 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+     if (bit & ((target_ulong)1 << (TARGET_LONG_BITS - 1))) {
+         deleg = env->mideleg, bit &= ~((target_ulong)1 << (TARGET_LONG_BITS - 1));
+         if (env->virt_mode) {
+-            deleg &= env->hideleg;
++            hdeleg = deleg & env->hideleg;
+         }
+-    } else if (env->virt_mode) {
+-        deleg &= env->hedeleg;
+     }
+ 
+-    if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
++    if (env->virt_mode == 1 && bit < 64 && !((hdeleg >> bit) & 1)) {
++        /* trap from virtual machine and not handled int VM */
++        /* perform vm exit */
++        env->pc = env->bpc + 4;
++        //hcause ?
++        env->bpc = backup_epc;
++        swap_gpr_and_background_csrs(env);
++        swap_foreground_background_csrs(env);
++        if(env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
++            /* handle in S-mode */
++            if (hasbadaddr) {
++                env->stval = env->tval;
++                env->hvtval = env->vtval;
++            } else {
++                env->stval = 0;
++                env->hvtval = 0;
++            }
++            target_ulong s = env->mstatus;
++            s = set_field(s, MSTATUS_SPIE, get_field(s, MSTATUS_SIE));
++            s = set_field(s, MSTATUS_SPP, env->priv);
++            s = set_field(s, MSTATUS_SIE, 0);
++            csr_write_helper(env, s, CSR_MSTATUS);
++            set_privilege(env, PRV_S);
++            // is SPV necessarty ?
++            s = env->hstatus;
++            s = set_field(s, HSTATUS_SPV, env->virt_mode);
++            csr_write_helper(env, s, CSR_HSTATUS);
++        } else {
++            /* handle in M-mode */
++            if (hasbadaddr) {
++                env->mtval = env->tval;
++                env->mvtval = env->vtval;
++            } else {
++                env->mtval = 0;
++                env->mvtval = 0;
++            }
++            target_ulong s = env->mstatus;
++            s = set_field(s, MSTATUS_MPIE, get_field(s, MSTATUS_MIE));
++            s = set_field(s, MSTATUS_MPP, env->priv);
++            s = set_field(s, MSTATUS_MIE, 0);
++            s = set_field(s, MSTATUS_MPV, env->virt_mode);
++            csr_write_helper(env, s, CSR_MSTATUS);
++            set_privilege(env, PRV_M);
++        }
++        env->virt_mode = 0;
++    } else if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
+         /* handle the trap in S-mode */
+         /* No need to check STVEC for misaligned - lower 2 bits cannot be set */
+         env->pc = env->stvec;
+@@ -599,11 +643,6 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         s = set_field(s, MSTATUS_SPP, env->priv);
+         s = set_field(s, MSTATUS_SIE, 0);
+         csr_write_helper(env, s, CSR_MSTATUS);
+-        if (env->virt_mode == 0) {
+-            s = env->hstatus;
+-            s = set_field(s, HSTATUS_SPV, env->virt_mode);
+-            csr_write_helper(env, s, CSR_HSTATUS);
+-        }
+         set_privilege(env, PRV_S);
+     } else {
+         /* No need to check MTVEC for misaligned - lower 2 bits cannot be set */
+@@ -628,15 +667,6 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         set_privilege(env, PRV_M);
+     }
+ 
+-    /* trap from virtual machine and not handled int VM */
+-    if (env->virt_mode == 1 && bit < 64 && !((deleg >> bit) & 1)) {
+-        /* perform vm exit */
+-        env->pc = env->host_pc;
+-        swap_gpr_and_background_csrs(env);
+-        swap_foreground_background_csrs(env);
+-        env->virt_mode = 0;
+-    }
+-
+     /*
+      * temporarily remove wfi signal here.
+      */
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index a42bd29..6082159 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -319,6 +319,9 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
+         env->bsstatus = val_to_write & mask;
+         break;
+     }
++    case CSR_BPC:
++        env->bpc = val_to_write;
++        break;
+     case CSR_BTP:
+         env->btp = val_to_write;
+         break;
+@@ -580,6 +583,8 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
+     }
+     case CSR_BSP:
+         return env->bsp;
++    case CSR_BPC:
++        return env->bpc;
+     case CSR_BTP:
+         return env->btp;
+     case CSR_BSIP:
+@@ -778,7 +783,7 @@ void swap_gpr_and_background_csrs(CPURISCVState *env)
+  * no need to set hstatus.spv, it's remains 0.
+  */
+ static void perform_vm_entry(CPURISCVState *env){
+-    env->host_pc = env->pc;
++    env->bpc = env->pc;
+     swap_gpr_and_background_csrs(env);
+     swap_foreground_background_csrs(env);
+     env->virt_mode = 1;
+@@ -814,7 +819,7 @@ target_ulong helper_hret(CPURISCVState *env, target_ulong cpu_pc_deb)
+         helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
+     }
+ 
+-    target_ulong retpc = env->sepc;
++    target_ulong retpc = env->bpc;
+     if (!riscv_feature(env, RISCV_FEATURE_RVC) && (retpc & 0x3)) {
+         helper_raise_exception(env, RISCV_EXCP_INST_ADDR_MIS);
+     }
+-- 
+2.7.4
+
