@@ -1,7 +1,7 @@
 From 690f5658c1ea844f8ed360857ae7142f8fdea000 Mon Sep 17 00:00:00 2001
 From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
 Date: Sun, 21 Jan 2018 23:29:39 +0800
-Subject: [PATCH 22/22] add vm entry and vm exit operation
+Subject: [PATCH 23/24] add vm entry and vm exit operation
 
 Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
 ---

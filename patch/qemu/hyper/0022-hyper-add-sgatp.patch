@@ -1,0 +1,100 @@
+From de391b994fb0ba9fa2d6c2176e0d39909f392fa1 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sat, 20 Jan 2018 00:36:30 +0800
+Subject: [PATCH 22/24] hyper: add sgatp
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/disas/riscv-opc.h | 1 +
+ target-riscv/cpu.h        | 4 ++++
+ target-riscv/helper.c     | 8 ++++----
+ target-riscv/op_helper.c  | 5 +++++
+ 4 files changed, 14 insertions(+), 4 deletions(-)
+
+diff --git a/include/disas/riscv-opc.h b/include/disas/riscv-opc.h
+index 92cbc17..bbe6d24 100644
+--- a/include/disas/riscv-opc.h
++++ b/include/disas/riscv-opc.h
+@@ -565,6 +565,7 @@
+ #define CSR_BSTVAL 0x943
+ #define CSR_BSIP 0x944
+ #define CSR_BSATP 0x980
++#define CSR_SGATP 0x981
+ #define CSR_MSTATUS 0x300
+ #define CSR_MISA 0x301
+ #define CSR_MEDELEG 0x302
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index 0269e9a..6808509 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -223,6 +223,10 @@ typedef struct CPURISCVState {
+      * Background Supervisor Address Translation and Protection Register
+      */
+     target_ulong bsatp;
++    /*
++     * Supervisor Guest(Stage 2) Address Translation and Protection Register
++     */
++    target_ulong sgatp;
+     /* end hypervisor csr*/
+ #endif
+ 
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index 8e6b8ef..ac2e3e7 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -60,7 +60,7 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+ static target_ulong get_host_physical_address(CPURISCVState *env,
+         target_ulong address)
+ {
+-    if (get_field(env->bsatp, SATP_MODE) == VM_1_10_MBARE) {
++    if (get_field(env->sgatp, SATP_MODE) == VM_1_10_MBARE) {
+         return address;
+     }
+ 
+@@ -72,9 +72,9 @@ static target_ulong get_host_physical_address(CPURISCVState *env,
+     int levels, ptidxbits, ptesize, vm, sum;
+     int mxr = get_field(env->mstatus, MSTATUS_MXR);
+ 
+-    base = get_field(env->bsatp, SATP_PPN) << PGSHIFT;
++    base = get_field(env->sgatp, SATP_PPN) << PGSHIFT;
+     sum = get_field(env->mstatus, MSTATUS_SUM);
+-    vm = get_field(env->bsatp, SATP_MODE);
++    vm = get_field(env->sgatp, SATP_MODE);
+     switch (vm) {
+         case VM_1_10_SV32:
+             levels = 2; ptidxbits = 10; ptesize = 4; break;
+@@ -94,7 +94,7 @@ static target_ulong get_host_physical_address(CPURISCVState *env,
+     target_ulong masked_msbs = (addr >> (va_bits - 1)) & mask;
+     if (masked_msbs != 0 && masked_msbs != mask) {
+         env->mvtval = env->hvtval = addr;
+-        return TRANSLATE_FAIL;
++        return 0;
+     }
+ 
+     int ptshift = (levels - 1) * ptidxbits;
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index 637321f..19c778f 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -349,6 +349,9 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
+     case CSR_BSATP:
+         env->bsatp = val_to_write;
+         break;
++    case CSR_SGATP:
++        env->sgatp = val_to_write;
++        break;
+     case CSR_MVTVAL:
+         env->mvtval = val_to_write;
+         break;
+@@ -595,6 +598,8 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
+         return env->bstval;
+     case CSR_BSATP:
+         return env->bsatp;
++    case CSR_SGATP:
++        return env->sgatp;
+     case CSR_MVTVAL:
+         return env->mvtval;
+     /* end hypervisor */
+-- 
+2.7.4
+
