@@ -19,7 +19,6 @@ nod /dev/tty    	666 0 0 c 5 0
 file /etc/inittab	../../initramfs/etc/inittab	755 0 0
 
 file /bin/busybox	../busybox/_install/bin/busybox 755 0 0
-file /bin/kvm-tool	../../install/kvm-tool 755 0 0
 
 slink /linuxrc		/bin/busybox 777 0 0
 slink /sbin/init		/bin/busybox 777 0 0

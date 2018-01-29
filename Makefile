@@ -35,8 +35,6 @@ TOOLCHAIN_BUILDLOG	:= $(LOG_PATH)/toolchain-build.log
 BUSYBOX_BUILDLOG	:= $(LOG_PATH)/busybox-build.log
 LINUX_BUILDLOG		:= $(LOG_PATH)/linux-build.log
 PK_BUILDLOG			:= $(LOG_PATH)/pk-build.log
-FESVR_BUILDLOG		:= $(LOG_PATH)/fesvr-build.log
-ISA_SIM_BUILDLOG	:= $(LOG_PATH)/isa-sim-build.log
 
 QEMU_MACHINE		?= spike_v1.10
 
@@ -158,18 +156,33 @@ linux-make:
 	@echo "Make clean ..."
 	@make -C $(DIR_LINUX) ARCH=riscv				\
 		clean > $(LINUX_BUILDLOG) 2>&1
-	@echo "Make config ..."
-	@cp $(DIR_RISCV)/riscv_linux_config 			\
+	@echo "Make guest config ..."
+	@cp $(DIR_RISCV)/linux-configs/guest-config		\
 		$(DIR_LINUX)/.config
 	@make -C $(DIR_LINUX) ARCH=riscv				\
 		olddefconfig >> $(LINUX_BUILDLOG) 2>&1
 	@echo "Making (in several minutes) ..."
 	@make -C $(DIR_LINUX) ARCH=riscv -j4			\
 		>> $(LINUX_BUILDLOG) 2>&1
-	@echo "dump linux"
+	@echo "dump guest linux"
 	@riscv64-unknown-linux-gnu-objdump -D			\
 		$(DIR_LINUX)/vmlinux						\
-		> $(LOG_PATH)/dump.linux.log
+		> $(LOG_PATH)/dump.linux.guest.log
+	@echo "Copy guest vmlinux to install/"
+	@cp $(DIR_LINUX)/vmlinux						\
+		$(DIR_INSTALL)/vmlinux-guest
+	@echo "Make host config ..."
+	@cp $(DIR_RISCV)/linux-configs/host-config		\
+		$(DIR_LINUX)/.config
+	@make -C $(DIR_LINUX) ARCH=riscv				\
+		olddefconfig >> $(LINUX_BUILDLOG) 2>&1
+	@echo "Making (in several minutes) ..."
+	@make -C $(DIR_LINUX) ARCH=riscv -j4			\
+		>> $(LINUX_BUILDLOG) 2>&1
+	@echo "dump host linux"
+	@riscv64-unknown-linux-gnu-objdump -D			\
+		$(DIR_LINUX)/vmlinux						\
+		> $(LOG_PATH)/dump.linux.host.log
 
 kvm-tool-make:
 	@$(CROSS_PREFIX)gcc								\
