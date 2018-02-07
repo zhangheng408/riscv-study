@@ -1,0 +1,25 @@
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index eccb810..e26b08e 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -407,6 +407,12 @@ void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
+ void riscv_cpu_unassigned_access(CPUState *cs, hwaddr addr, bool is_write,
+         bool is_exec, int unused, unsigned size)
+ {
++    RISCVCPU *cpu = RISCV_CPU(cs);
++    CPURISCVState *env = &cpu->env;
++
++    if (env->virt_mode) {
++        return;
++    }
+     printf("unassigned address not implemented for riscv\n");
+     printf("are you trying to fetch instructions from an MMIO page?\n");
+     printf("unassigned Address: %016" PRIx64 "\n", addr);
+@@ -623,6 +629,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+             set_privilege(env, PRV_M);
+         }
+         env->virt_mode = 0;
++        tlb_flush(cs, 1);
+     } else if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
+         /* handle the trap in S-mode */
+         /* No need to check STVEC for misaligned - lower 2 bits cannot be set */
