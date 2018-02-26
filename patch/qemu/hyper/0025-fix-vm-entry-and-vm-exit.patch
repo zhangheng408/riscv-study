@@ -1,4 +1,4 @@
-From e1bab244a6378054db1938df69a75ea894b87c93 Mon Sep 17 00:00:00 2001
+From cd832fc7fef7108d6b19a04be47cc792696feec8 Mon Sep 17 00:00:00 2001
 From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
 Date: Mon, 26 Feb 2018 02:54:09 -0500
 Subject: [PATCH 25/25] fix vm entry and vm exit
@@ -6,9 +6,9 @@ Subject: [PATCH 25/25] fix vm entry and vm exit
 Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
 ---
  target-riscv/cpu.h       |  9 +++++----
- target-riscv/helper.c    | 11 +++++++++--
+ target-riscv/helper.c    | 12 ++++++++++--
  target-riscv/op_helper.c | 48 ++++++++++++++++++++++++++++++++++++------------
- 3 files changed, 50 insertions(+), 18 deletions(-)
+ 3 files changed, 51 insertions(+), 18 deletions(-)
 
 diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
 index 14c432e..ba92b18 100644
@@ -36,7 +36,7 @@ index 14c432e..ba92b18 100644
      }while(0);
  
 diff --git a/target-riscv/helper.c b/target-riscv/helper.c
-index eccb810..b075ac1 100644
+index eccb810..65a5c53 100644
 --- a/target-riscv/helper.c
 +++ b/target-riscv/helper.c
 @@ -407,6 +407,12 @@ void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
@@ -52,16 +52,17 @@ index eccb810..b075ac1 100644
      printf("unassigned address not implemented for riscv\n");
      printf("are you trying to fetch instructions from an MMIO page?\n");
      printf("unassigned Address: %016" PRIx64 "\n", addr);
-@@ -568,7 +574,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+@@ -568,7 +574,8 @@ void riscv_cpu_do_interrupt(CPUState *cs)
          (fixed_cause == RISCV_EXCP_LOAD_ACCESS_FAULT) ||
          (fixed_cause == RISCV_EXCP_STORE_AMO_ACCESS_FAULT) ||
          (fixed_cause == RISCV_EXCP_INST_PAGE_FAULT) ||
 -        (fixed_cause == RISCV_EXCP_LOAD_PAGE_FAULT) || 
++        (fixed_cause == RISCV_EXCP_LOAD_PAGE_FAULT) ||
 +        (fixed_cause == RISCV_EXCP_HOST_PAGE_FAULT) ||
          (fixed_cause == RISCV_EXCP_STORE_PAGE_FAULT);
  
      if (bit & ((target_ulong)1 << (TARGET_LONG_BITS - 1))) {
-@@ -600,11 +606,11 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+@@ -600,11 +607,11 @@ void riscv_cpu_do_interrupt(CPUState *cs)
              s = set_field(s, MSTATUS_SPP, env->priv);
              s = set_field(s, MSTATUS_SIE, 0);
              csr_write_helper(env, s, CSR_MSTATUS);
@@ -74,7 +75,7 @@ index eccb810..b075ac1 100644
          } else {
              /* handle in M-mode */
              if (hasbadaddr) {
-@@ -623,6 +629,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+@@ -623,6 +630,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
              set_privilege(env, PRV_M);
          }
          env->virt_mode = 0;
