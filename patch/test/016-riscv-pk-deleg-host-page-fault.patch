@@ -1,0 +1,24 @@
+diff --git a/machine/encoding.h b/machine/encoding.h
+index 1463801..8f06d08 100644
+--- a/machine/encoding.h
++++ b/machine/encoding.h
+@@ -970,6 +970,7 @@
+ #define CAUSE_MACHINE_ECALL 0xb
+ #define CAUSE_FETCH_PAGE_FAULT 0xc
+ #define CAUSE_LOAD_PAGE_FAULT 0xd
++#define CAUSE_HOST_PAGE_FAULT 0xe
+ #define CAUSE_STORE_PAGE_FAULT 0xf
+ #endif
+ #ifdef DECLARE_INSN
+diff --git a/machine/minit.c b/machine/minit.c
+index 0fb5f21..c95684f 100644
+--- a/machine/minit.c
++++ b/machine/minit.c
+@@ -41,6 +41,7 @@ static void delegate_traps()
+     (1U << CAUSE_LOAD_PAGE_FAULT) |
+     (1U << CAUSE_STORE_PAGE_FAULT) |
+     (1U << CAUSE_BREAKPOINT) |
++    (1U << CAUSE_HOST_PAGE_FAULT) |
+     (1U << CAUSE_USER_ECALL);
+ 
+   write_csr(mideleg, interrupts);
