@@ -1,0 +1,45 @@
+From dd1f6e07c9deb5539aa23910448206487fb1de6e Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Mon, 26 Feb 2018 21:07:48 +0800
+Subject: [PATCH 13/13] kvm: fix enter_virtual_machine
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/kvm/entry.S | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/arch/riscv/kvm/entry.S b/arch/riscv/kvm/entry.S
+index 8e99002..f569a59 100644
+--- a/arch/riscv/kvm/entry.S
++++ b/arch/riscv/kvm/entry.S
+@@ -12,6 +12,7 @@ ENTRY(enter_virtual_machine)
+ 	/* Store host context. */
+ 	addi sp, sp, -(PT_SIZE_ON_STACK)
+ 	REG_S ra,  PT_RA(sp)
++	REG_S gp,  PT_GP(sp)
+ 	REG_S x8,  PT_S0(sp)
+ 	REG_S x9,  PT_S1(sp)
+ 	REG_S x10, PT_A0(sp) /* Save kvm_vcpu_arch pointer. */
+@@ -27,9 +28,9 @@ ENTRY(enter_virtual_machine)
+ 	REG_S x27, PT_S11(sp)
+ 	/* restore guest General Purpose Registers. */
+ 	REG_L x1,  PT_RA(a0)
+-	REG_L x2,  PT_SP(a0)
++    /* sp load value from bsp by hret */
+ 	REG_L x3,  PT_GP(a0)
+-	REG_L x4,  PT_TP(a0)
++    /* tp load value from btp by hret */
+ 	REG_L x5,  PT_T0(a0)
+ 	REG_L x6,  PT_T1(a0)
+ 	REG_L x7,  PT_T2(a0)
+@@ -105,6 +106,7 @@ ret_from_guest:
+ 	REG_S t0,  PT_SP(a0)
+ 	/* Load host context. */
+ 	REG_L ra,  PT_RA(sp)
++	REG_L gp,  PT_GP(sp)
+ 	REG_L x8,  PT_S0(sp)
+ 	REG_L x9,  PT_S1(sp)
+ 	REG_L x10, PT_A0(sp) /* Save kvm_vcpu_arch pointer. */
+-- 
+2.7.4
+

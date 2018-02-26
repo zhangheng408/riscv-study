@@ -1,0 +1,39 @@
+From 87c189ed8072f893f501f298360562d286b1301f Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Mon, 26 Feb 2018 20:50:46 +0800
+Subject: [PATCH 26/26] hyper: mem translate host fail
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/helper.c    | 2 +-
+ target-riscv/op_helper.c | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index 65a5c53..8023fd6 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -397,7 +397,7 @@ void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
+ {
+     int ret;
+     ret = riscv_cpu_handle_mmu_fault(cs, addr, access_type, mmu_idx);
+-    if (ret == TRANSLATE_FAIL) {
++    if (ret != TRANSLATE_SUCCESS) {
+         RISCVCPU *cpu = RISCV_CPU(cs);
+         CPURISCVState *env = &cpu->env;
+         do_raise_exception_err(env, cs->exception_index, retaddr);
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index a7aeb89..be45330 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -205,6 +205,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
+         mask |= 1ULL << (RISCV_EXCP_M_ECALL);
+         mask |= 1ULL << (RISCV_EXCP_INST_PAGE_FAULT);
+         mask |= 1ULL << (RISCV_EXCP_LOAD_PAGE_FAULT);
++        mask |= 1ULL << (RISCV_EXCP_HOST_PAGE_FAULT);
+         mask |= 1ULL << (RISCV_EXCP_STORE_PAGE_FAULT);
+         env->medeleg = (env->medeleg & ~mask)
+                                 | (val_to_write & mask);
+-- 
+2.7.4
+

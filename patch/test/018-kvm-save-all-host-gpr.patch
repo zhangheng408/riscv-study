@@ -1,0 +1,83 @@
+diff --git a/arch/riscv/kvm/entry.S b/arch/riscv/kvm/entry.S
+index f569a59..c70c4af 100644
+--- a/arch/riscv/kvm/entry.S
++++ b/arch/riscv/kvm/entry.S
+@@ -13,9 +13,19 @@ ENTRY(enter_virtual_machine)
+ 	addi sp, sp, -(PT_SIZE_ON_STACK)
+ 	REG_S ra,  PT_RA(sp)
+ 	REG_S gp,  PT_GP(sp)
++	REG_S x5,  PT_T0(sp)
++	REG_S x6,  PT_T1(sp)
++	REG_S x7,  PT_T2(sp)
+ 	REG_S x8,  PT_S0(sp)
+ 	REG_S x9,  PT_S1(sp)
+ 	REG_S x10, PT_A0(sp) /* Save kvm_vcpu_arch pointer. */
++	REG_S x11, PT_A1(sp)
++	REG_S x12, PT_A2(sp)
++	REG_S x13, PT_A3(sp)
++	REG_S x14, PT_A4(sp)
++	REG_S x15, PT_A5(sp)
++	REG_S x16, PT_A6(sp)
++	REG_S x17, PT_A7(sp)
+ 	REG_S x18, PT_S2(sp)
+ 	REG_S x19, PT_S3(sp)
+ 	REG_S x20, PT_S4(sp)
+@@ -26,6 +36,10 @@ ENTRY(enter_virtual_machine)
+ 	REG_S x25, PT_S9(sp)
+ 	REG_S x26, PT_S10(sp)
+ 	REG_S x27, PT_S11(sp)
++	REG_S x28, PT_T3(sp)
++	REG_S x29, PT_T4(sp)
++	REG_S x30, PT_T5(sp)
++	REG_S x31, PT_T6(sp)
+ 	/* restore guest General Purpose Registers. */
+ 	REG_L x1,  PT_RA(a0)
+     /* sp load value from bsp by hret */
+@@ -69,14 +83,14 @@ ret_from_guest:
+ 	REG_S x1,  PT_RA(a0)
+ 	/* SP(X2) has been saved to bsp. */
+ 	REG_S x3,  PT_GP(a0)
+-	/* TP(X3) has been saved to btp. */
++	/* TP(X4) has been saved to btp. */
+ 	REG_S x5,  PT_T0(a0)
+ 	REG_S x6,  PT_T1(a0)
+ 	REG_S x7,  PT_T2(a0)
+ 	REG_S x8,  PT_S0(a0)
+ 	REG_S x9,  PT_S1(a0)
+-	REG_S x11, PT_A1(a0)
+ 	/* A0 have saved in Stack. */
++	REG_S x11, PT_A1(a0)
+ 	REG_S x12, PT_A2(a0)
+ 	REG_S x13, PT_A3(a0)
+ 	REG_S x14, PT_A4(a0)
+@@ -107,9 +121,19 @@ ret_from_guest:
+ 	/* Load host context. */
+ 	REG_L ra,  PT_RA(sp)
+ 	REG_L gp,  PT_GP(sp)
++	REG_L x5,  PT_T0(sp)
++	REG_L x6,  PT_T1(sp)
++	REG_L x7,  PT_T2(sp)
+ 	REG_L x8,  PT_S0(sp)
+ 	REG_L x9,  PT_S1(sp)
+ 	REG_L x10, PT_A0(sp) /* Save kvm_vcpu_arch pointer. */
++	REG_L x11, PT_A1(sp)
++	REG_L x12, PT_A2(sp)
++	REG_L x13, PT_A3(sp)
++	REG_L x14, PT_A4(sp)
++	REG_L x15, PT_A5(sp)
++	REG_L x16, PT_A6(sp)
++	REG_L x17, PT_A7(sp)
+ 	REG_L x18, PT_S2(sp)
+ 	REG_L x19, PT_S3(sp)
+ 	REG_L x20, PT_S4(sp)
+@@ -120,6 +144,10 @@ ret_from_guest:
+ 	REG_L x25, PT_S9(sp)
+ 	REG_L x26, PT_S10(sp)
+ 	REG_L x27, PT_S11(sp)
++	REG_L x28, PT_T3(sp)
++	REG_L x29, PT_T4(sp)
++	REG_L x30, PT_T5(sp)
++	REG_L x31, PT_T6(sp)
+ 	addi sp, sp, -(PT_SIZE_ON_STACK)
+ 	ret
+ ENDPROC(enter_virtual_machine)
