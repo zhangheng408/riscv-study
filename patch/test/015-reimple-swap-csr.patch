@@ -1,0 +1,293 @@
+diff --git a/include/qemu-common.h b/include/qemu-common.h
+index 9e8b0bd..1683c15 100644
+--- a/include/qemu-common.h
++++ b/include/qemu-common.h
+@@ -138,4 +138,7 @@ void page_size_init(void);
+  * returned. */
+ bool dump_in_progress(void);
+ 
++#define printd(fmt, ...)                                         \
++    error_printf("%s/%d: " fmt, __func__, __LINE__, ##__VA_ARGS__)
++
+ #endif
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index 14c432e..ba92b18 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -469,15 +469,16 @@ void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write);
+ #define swap_foreground_background_csr(env, csr_no)                     \
+     do{                                                                 \
+         target_ulong backup_csr;                                        \
+-        backup_csr = csr_read_helper(env, CSR_##csr_no);                \
+-        backup_csr = helper_csrrw(env, backup_csr, CSR_B##csr_no);      \
+-        csr_write_helper(env, backup_csr, CSR_##csr_no);                \
++        backup_csr = env->b##csr_no;                                    \
++        env->b##csr_no = env->csr_no;                                   \
++        env->csr_no = backup_csr;                                       \
+     }while(0);
+ 
+ #define swap_gpr_and_background_csr(env, gpr_no, csr_no)                \
+     do{                                                                 \
+         target_ulong backup_csr;                                        \
+-        backup_csr = helper_csrrw(env, env->gpr[gpr_no], csr_no);       \
++        backup_csr = env->csr_no;                                       \
++        env->csr_no = env->gpr[gpr_no];                                 \
+         env->gpr[gpr_no] = backup_csr;                                  \
+     }while(0);
+ 
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index eccb810..032cd5d 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -36,6 +36,11 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+         RISCVCPU *cpu = RISCV_CPU(cs);
+         CPURISCVState *env = &cpu->env;
+         int interruptno = cpu_riscv_hw_interrupts_pending(env);
++        //if(env->virt_mode) {
++        {
++            printd("int NO. %x, pc %lx, bpc %lx, vm %x, satp %lx, sgatp %lx, bsatp %lx\n",
++                    interruptno, env->pc, env->bpc, env->virt_mode, env->satp, env->sgatp, env->bsatp);
++        }
+         if (interruptno + 1) {
+             cs->exception_index = 0x70000000U | interruptno;
+             riscv_cpu_do_interrupt(cs);
+@@ -397,9 +402,13 @@ void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
+ {
+     int ret;
+     ret = riscv_cpu_handle_mmu_fault(cs, addr, access_type, mmu_idx);
+-    if (ret == TRANSLATE_FAIL) {
++    if (ret != TRANSLATE_SUCCESS) {
+         RISCVCPU *cpu = RISCV_CPU(cs);
+         CPURISCVState *env = &cpu->env;
++        if(RISCV_CPU(cs)->env.virt_mode) {
++            printd("addr 0x%lx, access_type 0x%x, mmu_idx 0x%x, retaddr 0x%lx, ret %x, pc 0x%lx, bpc 0x%lx\n",
++                    addr, access_type, mmu_idx, retaddr, ret, env->pc, env->bpc);
++        }
+         do_raise_exception_err(env, cs->exception_index, retaddr);
+     }
+ }
+@@ -407,6 +416,12 @@ void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
+ void riscv_cpu_unassigned_access(CPUState *cs, hwaddr addr, bool is_write,
+         bool is_exec, int unused, unsigned size)
+ {
++    RISCVCPU *cpu = RISCV_CPU(cs);
++    CPURISCVState *env = &cpu->env;
++
++    if (env->virt_mode) {
++        return;
++    }
+     printf("unassigned address not implemented for riscv\n");
+     printf("are you trying to fetch instructions from an MMIO page?\n");
+     printf("unassigned Address: %016" PRIx64 "\n", addr);
+@@ -582,10 +597,14 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         /* trap from virtual machine and not handled int VM */
+         /* perform vm exit */
+         env->pc = env->bpc + 4;
++        printd("pc %lx\n", env->pc);
+         //hcause ?
+         env->bpc = backup_epc;
++        printd("\n");
+         swap_gpr_and_background_csrs(env);
++        printd("\n");
+         swap_foreground_background_csrs(env);
++        printd("\n");
+         if(env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
+             /* handle in S-mode */
+             if (hasbadaddr) {
+@@ -599,12 +618,16 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+             s = set_field(s, MSTATUS_SPIE, get_field(s, MSTATUS_SIE));
+             s = set_field(s, MSTATUS_SPP, env->priv);
+             s = set_field(s, MSTATUS_SIE, 0);
++            printd("\n");
+             csr_write_helper(env, s, CSR_MSTATUS);
+-            set_privilege(env, PRV_S);
++            printd("\n");
++            printd("\n");
+             // is SPV necessarty ?
+             s = env->hstatus;
+             s = set_field(s, HSTATUS_SPV, env->virt_mode);
+             csr_write_helper(env, s, CSR_HSTATUS);
++            printd("\n");
++            set_privilege(env, PRV_S);
+         } else {
+             /* handle in M-mode */
+             if (hasbadaddr) {
+@@ -619,10 +642,15 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+             s = set_field(s, MSTATUS_MPP, env->priv);
+             s = set_field(s, MSTATUS_MIE, 0);
+             s = set_field(s, MSTATUS_MPV, env->virt_mode);
++            printd("\n");
+             csr_write_helper(env, s, CSR_MSTATUS);
++            printd("\n");
+             set_privilege(env, PRV_M);
++            printd("\n");
+         }
+         env->virt_mode = 0;
++        tlb_flush(cs, 1);
++        printd("qemu vm exit\n");
+     } else if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
+         /* handle the trap in S-mode */
+         /* No need to check STVEC for misaligned - lower 2 bits cannot be set */
+@@ -637,6 +665,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+             #endif
+             env->sbadaddr = env->badaddr;
+         }
++        printd("sepc %lx, scause %lx, badaddr %lx\n", backup_epc, fixed_cause, env->badaddr);
+ 
+         target_ulong s = env->mstatus;
+         s = set_field(s, MSTATUS_SPIE, get_field(s, MSTATUS_SIE));
+@@ -657,6 +686,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+             #endif
+             env->mbadaddr = env->badaddr;
+         }
++        printd("mepc %lx, mcause %lx, badaddr %lx\n", backup_epc, fixed_cause, env->badaddr);
+ 
+         target_ulong s = env->mstatus;
+         s = set_field(s, MSTATUS_MPIE, get_field(s, MSTATUS_MIE));
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index 6082159..8c0f645 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -747,31 +747,60 @@ void set_privilege(CPURISCVState *env, target_ulong newpriv)
+         printf("INVALID PRIV SET\n");
+         exit(1);
+     }
+-    if (newpriv == PRV_H) {
+-        newpriv = PRV_U;
+-    }
++    printd("\n");
+     helper_tlb_flush(env);
+     env->priv = newpriv;
++    printd("\n");
++}
++
++static inline void swap_foreground_background_sstatus(CPURISCVState *env)
++{
++    target_ulong ms = env->mstatus;
++    target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_UIE
++        | SSTATUS_UPIE | SSTATUS_SPP | SSTATUS_FS | SSTATUS_XS
++        | SSTATUS_SUM | SSTATUS_MXR | SSTATUS_SD;
++    target_ulong bs = env->bsstatus;
++    env->mstatus = (ms & ~mask) | (env->bsstatus & mask);
++    env->bsstatus = ms & mask;
++}
++
++static inline void swap_foreground_background_sip(CPURISCVState *env)
++{
++    target_ulong bsip = env->bsip;
++    env->bsip = env->mip & env->mideleg;
++    env->mip = (env->mip & ~env->mideleg) | (env->bsip & env->mideleg);
++}
++
++static inline void swap_foreground_background_sie(CPURISCVState *env)
++{
++    target_ulong bsie = env->bsie;
++    env->bsie = env->mie & env->mideleg;
++    env->mie = (env->mie & ~env->mideleg) | (env->bsip & env->mideleg);
+ }
+ 
+ void swap_foreground_background_csrs(CPURISCVState *env)
+ {
+-    swap_foreground_background_csr(env, SSTATUS);
+-    swap_foreground_background_csr(env, SIP);
+-    swap_foreground_background_csr(env, SIP);
+-    swap_foreground_background_csr(env, SIE);
+-    swap_foreground_background_csr(env, STVEC);
+-    swap_foreground_background_csr(env, SSCRATCH);
+-    swap_foreground_background_csr(env, SEPC);
+-    swap_foreground_background_csr(env, SCAUSE);
+-    swap_foreground_background_csr(env, STVAL);
+-    swap_foreground_background_csr(env, SATP);
++    printd("\n");
++    swap_foreground_background_sstatus(env);
++    swap_foreground_background_sip(env);
++    swap_foreground_background_sie(env);
++    swap_foreground_background_csr(env, stvec);
++    printd("\n");
++    swap_foreground_background_csr(env, sscratch);
++    swap_foreground_background_csr(env, sepc);
++    swap_foreground_background_csr(env, scause);
++    swap_foreground_background_csr(env, stval);
++    swap_foreground_background_csr(env, satp);
++    printd("\n");
+ }
+ 
+ void swap_gpr_and_background_csrs(CPURISCVState *env)
+ {
+-    swap_gpr_and_background_csr(env, 2, CSR_BSP);
+-    swap_gpr_and_background_csr(env, 4, CSR_BTP);
++    printd("\n");
++    swap_gpr_and_background_csr(env, 2, bsp);
++    printd("\n");
++    swap_gpr_and_background_csr(env, 4, btp);
++    printd("\n");
+ }
+ 
+ /*
+@@ -783,9 +812,12 @@ void swap_gpr_and_background_csrs(CPURISCVState *env)
+  * no need to set hstatus.spv, it's remains 0.
+  */
+ static void perform_vm_entry(CPURISCVState *env){
++    printd("\n");
+     env->bpc = env->pc;
+     swap_gpr_and_background_csrs(env);
++    printd("\n");
+     swap_foreground_background_csrs(env);
++    printd("\n");
+     env->virt_mode = 1;
+ }
+ 
+@@ -814,26 +846,39 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
+ 
+ target_ulong helper_hret(CPURISCVState *env, target_ulong cpu_pc_deb)
+ {
++    printd("priv %x, virt_mode %x, mstatus & MSTATUS_TSR %lx, () %lx, (&&) %lx, () %lx\n",
++            env->priv, env->virt_mode, env->mstatus & MSTATUS_TSR,
++            (env->virt_mode || env->mstatus & MSTATUS_TSR),
++            (env->priv == PRV_S && (env->virt_mode || env->mstatus & MSTATUS_TSR)),
++            env->priv < PRV_S || (env->priv == PRV_S && (env->virt_mode || env->mstatus & MSTATUS_TSR)));
+     if (env->priv < PRV_S
+             || (env->priv == PRV_S && (env->virt_mode || env->mstatus & MSTATUS_TSR))) {
++        printd("\n");
+         helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
+     }
++    printd("\n");
+ 
+     target_ulong retpc = env->bpc;
+     if (!riscv_feature(env, RISCV_FEATURE_RVC) && (retpc & 0x3)) {
++        printd("\n");
+         helper_raise_exception(env, RISCV_EXCP_INST_ADDR_MIS);
+     }
+ 
++    printd("\n");
++    perform_vm_entry(env);
++
++    printd("\n");
+     target_ulong mstatus = env->mstatus;
+     target_ulong prev_priv = get_field(mstatus, MSTATUS_SPP);
+     mstatus = set_field(mstatus, MSTATUS_SIE,
+                         get_field(mstatus, MSTATUS_SPIE));
+     mstatus = set_field(mstatus, MSTATUS_SPIE, 1);
+     mstatus = set_field(mstatus, MSTATUS_SPP, PRV_U);
++    printd("\n");
+     set_privilege(env, prev_priv);
++    printd("\n");
+     csr_write_helper(env, mstatus, CSR_MSTATUS);
+-
+-    perform_vm_entry(env);
++    printd("qemu vm entry\n");
+ 
+     return retpc;
+ }
+diff --git a/target-riscv/translate.c b/target-riscv/translate.c
+index c6d153e..13dd7a8 100644
+--- a/target-riscv/translate.c
++++ b/target-riscv/translate.c
+@@ -1379,6 +1379,7 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
+             ctx->bstate = BS_BRANCH;
+             break;
+         case 0x202: /* HRET */
++            printd("hret \n");
+             gen_helper_hret(cpu_pc, cpu_env, cpu_pc);
+             tcg_gen_exit_tb(0); /* no chaining */
+             ctx->bstate = BS_BRANCH;
