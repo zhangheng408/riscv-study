@@ -1,0 +1,30 @@
+From 2a07f959ec7f8c84cbff23310e6ffe127ed7b4d5 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sat, 17 Feb 2018 02:04:43 -0500
+Subject: [PATCH 09/12] kvm/riscv: format some macro defination
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/include/asm/kvm_host.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index 8c2b1ad..2c147fd 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -108,9 +108,9 @@ struct kvm_arch_memory_slot {
+ /*
+  * copy from qemu
+  */
+-#define ROM_BASE						0x1000
+-#define EXT_IO_BASE						0x40000000
+-#define DRAM_BASE						0x80000000
++#define ROM_BASE						_AC(0x1000, UL)
++#define EXT_IO_BASE						_AC(0x40000000, UL)
++#define DRAM_BASE						_AC(0x80000000, UL)
+ 
+ #define KVM_RISCV_DEFAULT_FDT			(0)
+ #define KVM_RISCV_DEFAULT_KERNEL_ENTRY	(DRAM_BASE + PAGE_OFFSET)
+-- 
+2.7.4
+

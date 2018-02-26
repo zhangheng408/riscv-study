@@ -1,0 +1,61 @@
+From c7b61999923272cc9174036f87ebc59c11dfeb5a Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sat, 17 Feb 2018 02:13:36 -0500
+Subject: [PATCH 12/12] kvm/riscv: clear guest info when vcpu put
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/kvm/kvm_riscv.c | 31 ++++++++++++++++++-------------
+ 1 file changed, 18 insertions(+), 13 deletions(-)
+
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index 0755ca5..8e1c57b 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -442,25 +442,30 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+ 	local_irq_restore(flags);
+ }
+ 
++/*
++ * store vcpu state.
++ * guest SP/TP register has been saved in vm exit.
++ */
+ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
+ {
+ 	unsigned long flags;
+ 
+ 	local_irq_save(flags);
+ 
+-	vcpu->arch.hvtval = csr_read(hvtval);
+-	vcpu->arch.hstatus = csr_read(hstatus);
+-	vcpu->arch.hedeleg = csr_read(hedeleg);
+-	vcpu->arch.hideleg = csr_read(hideleg);
+-	vcpu->arch.sstatus = csr_read(bsstatus);
+-	vcpu->arch.stvec = csr_read(bstvec);
+-	vcpu->arch.sip = csr_read(bsip);
+-	vcpu->arch.sie = csr_read(bsie);
+-	vcpu->arch.sscratch = csr_read(bsscratch);
+-	vcpu->arch.sepc = csr_read(bsepc);
+-	vcpu->arch.scause = csr_read(bscause);
+-	vcpu->arch.stval = csr_read(bstval);
+-	vcpu->arch.satp = csr_read(bsatp);
++	vcpu->arch.hvtval = csr_read_clear(hvtval, ~0L);
++	vcpu->arch.hstatus = csr_read_clear(hstatus, ~0L);
++	vcpu->arch.hedeleg = csr_read_clear(hedeleg, ~0L);
++	vcpu->arch.hideleg = csr_read_clear(hideleg, ~0L);
++	vcpu->arch.pc = csr_read_clear(bpc, ~0L);
++	vcpu->arch.sstatus = csr_read_clear(bsstatus, ~0L);
++	vcpu->arch.stvec = csr_read_clear(bstvec, ~0L);
++	vcpu->arch.sip = csr_read_clear(bsip, ~0L);
++	vcpu->arch.sie = csr_read_clear(bsie, ~0L);
++	vcpu->arch.sscratch = csr_read_clear(bsscratch, ~0L);
++	vcpu->arch.sepc = csr_read_clear(bsepc, ~0L);
++	vcpu->arch.scause = csr_read_clear(bscause, ~0L);
++	vcpu->arch.stval = csr_read_clear(bstval, ~0L);
++	vcpu->arch.satp = csr_read_clear(bsatp, ~0L);
+ 
+ 	local_irq_restore(flags);
+ }
+-- 
+2.7.4
+

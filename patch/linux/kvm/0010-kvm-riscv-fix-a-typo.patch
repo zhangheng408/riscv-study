@@ -1,0 +1,26 @@
+From bd5ee29f6c8070af7d3e7689a47c868b740dd904 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sat, 17 Feb 2018 02:06:29 -0500
+Subject: [PATCH 10/12] kvm/riscv: fix a typo
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/include/asm/kvm_host.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index 2c147fd..75925ce 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -113,7 +113,7 @@ struct kvm_arch_memory_slot {
+ #define DRAM_BASE						_AC(0x80000000, UL)
+ 
+ #define KVM_RISCV_DEFAULT_FDT			(0)
+-#define KVM_RISCV_DEFAULT_KERNEL_ENTRY	(DRAM_BASE + PAGE_OFFSET)
++#define KVM_RISCV_DEFAULT_KERNEL_ENTRY	(DRAM_BASE + PAGE_SIZE)
+ 
+ struct kvm_arch {
+ 	unsigned long fdt;
+-- 
+2.7.4
+
