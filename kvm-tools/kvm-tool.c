@@ -16,8 +16,8 @@ int kvm_fd = -1;
 int vm_fd = -1;
 int vcpu_fd = -1;
 
-void *rom_base = NULL;
-void *dram_base = NULL;
+align_addr *rom_base = NULL;
+align_addr *dram_base = NULL;
 
 void main_loop(void){
     char c;
@@ -41,6 +41,7 @@ int main(int argc, char **argv){
         printf("please input kernel file\n");
         exit(-1);
     }
+    printf("main: %p\n", main);
 
     ret = create_vm();
     if(ret < 0){
@@ -66,8 +67,8 @@ int main(int argc, char **argv){
     main_loop();
 
 free_mem:
-	free(rom_base);
-	free(dram_base);
+	free_align_addr(rom_base);
+	free_align_addr(dram_base);
 free_vm:
     if(vcpu_fd >= 0){
         close(vcpu_fd);

@@ -3,13 +3,13 @@
 #include "memory.h"
 #include "kernel.h"
 
-extern void *dram_base;
+extern align_addr *dram_base;
 
 void* load_kernel(char *kernel_file_name) {
     FILE *kernel_file;
     long kernel_size;
     size_t result;
-	void* buffer = (void *)((char *)dram_base + KERNEL_OFFSET);
+	void* buffer = (void *)((char *)dram_base->aligned_addr + KERNEL_OFFSET);
 
     kernel_file = fopen(kernel_file_name, "rb");
     if(kernel_file == NULL){

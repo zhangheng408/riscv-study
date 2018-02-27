@@ -7,24 +7,40 @@
 #include "kvm.h"
 #include "type.h"
 
-void *align_malloc(u64 size, u64 align){
-	void *ptr = NULL;
+align_addr *align_malloc(u64 size, u64 align){
+	align_addr *addr = NULL;
 
-	ptr = malloc(size + align);
-	if(ptr == NULL){
+    addr = malloc(sizeof(align_addr));
+    if(addr == NULL){
+        return NULL;
+    }
+
+    addr->raw_addr = NULL;
+	addr->raw_addr = malloc(size + align);
+	if(addr->raw_addr == NULL){
+        free(addr);
 		printf("%s: alloc 0x%x + 0x%x fail\n", __func__, size, align);
 		return NULL;
 	}
+
+    addr->align = align;
+    addr->size = size;
+    addr->aligned_addr = (void *)(((u64)addr->raw_addr + align) & ~(align - 1));
 	printf("alloc mem %p/%p with %llx/%llx\n",
-			ptr, (void *)(((u64)ptr + align) & ~(align - 1)), size, align);
-	return (void *)(((u64)ptr + align) & ~(align - 1));
+			addr->raw_addr, addr->aligned_addr, addr->size, align);
+	return addr;
+}
+
+void free_align_addr(align_addr* addr){
+    free(addr->raw_addr);
+    free(addr);
 }
 
 extern int vm_fd;
 
 static int memory_add_subregion(u64 base, u64 size, u32 slot_id, u32 flags,
-		void **user_base){
-	void *ptr = NULL;
+		align_addr **user_base){
+	align_addr *ptr = NULL;
 	struct kvm_userspace_memory_region kvm_mem;
 	int ret =  -1;
 
@@ -37,11 +53,11 @@ static int memory_add_subregion(u64 base, u64 size, u32 slot_id, u32 flags,
 	kvm_mem.flags = flags;
 	kvm_mem.guest_phys_addr = base;
 	kvm_mem.memory_size = size;
-	kvm_mem.userspace_addr = (u64)ptr;
+	kvm_mem.userspace_addr = (u64)ptr->aligned_addr;
 	ret = kvm_ioctl(vm_fd, KVM_SET_USER_MEMORY_REGION, (void *)&kvm_mem);
-	printf("%s: set user mem 0x%llx/%p, ret %d\n", __func__, base, ptr, ret);
+	printf("%s: set user mem 0x%llx/%p, ret %d\n", __func__, base, ptr->aligned_addr, ret);
 	if(ret < 0){
-		free(ptr);
+		free_align_addr(ptr);
 		return -2;
 	}
 
@@ -50,8 +66,8 @@ static int memory_add_subregion(u64 base, u64 size, u32 slot_id, u32 flags,
 	return 0;
 }
 
-extern void* rom_base;
-extern void* dram_base;
+extern align_addr* rom_base;
+extern align_addr* dram_base;
 
 int setup_memory(void){
 	int ret = -1;

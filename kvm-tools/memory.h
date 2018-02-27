@@ -1,6 +1,8 @@
 #ifndef KVM_TOOLS_MEMORY_H
 #define KVM_TOOLS_MEMORY_H
 
+#include "type.h"
+
 #define ALIGN_SIZE		(0x1000)
 
 #define ROM_BASE		0x1000 /*not from 0, from reset vector*/
@@ -12,5 +14,7 @@
 #define DRAM_SIZE		0x1000000 /*16M*/
 
 int setup_memory(void);
+align_addr *align_malloc(u64 size, u64 align);
+void free_align_addr(align_addr* addr);
 
 #endif
