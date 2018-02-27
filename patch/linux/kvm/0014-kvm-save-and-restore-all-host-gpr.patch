@@ -1,0 +1,114 @@
+From 610735399a65e7c55315c2f8e7de91418e759d7b Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Wed, 28 Feb 2018 00:34:38 +0800
+Subject: [PATCH 14/14] kvm: save and restore all host gpr
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/kvm/entry.S | 40 ++++++++++++++++++++++++++++++++++------
+ 1 file changed, 34 insertions(+), 6 deletions(-)
+
+diff --git a/arch/riscv/kvm/entry.S b/arch/riscv/kvm/entry.S
+index f569a59..e1af73d 100644
+--- a/arch/riscv/kvm/entry.S
++++ b/arch/riscv/kvm/entry.S
+@@ -13,9 +13,19 @@ ENTRY(enter_virtual_machine)
+ 	addi sp, sp, -(PT_SIZE_ON_STACK)
+ 	REG_S ra,  PT_RA(sp)
+ 	REG_S gp,  PT_GP(sp)
++	REG_S x5,  PT_T0(sp)
++	REG_S x6,  PT_T1(sp)
++	REG_S x7,  PT_T2(sp)
+ 	REG_S x8,  PT_S0(sp)
+ 	REG_S x9,  PT_S1(sp)
+ 	REG_S x10, PT_A0(sp) /* Save kvm_vcpu_arch pointer. */
++	REG_S x11, PT_A1(sp)
++	REG_S x12, PT_A2(sp)
++	REG_S x13, PT_A3(sp)
++	REG_S x14, PT_A4(sp)
++	REG_S x15, PT_A5(sp)
++	REG_S x16, PT_A6(sp)
++	REG_S x17, PT_A7(sp)
+ 	REG_S x18, PT_S2(sp)
+ 	REG_S x19, PT_S3(sp)
+ 	REG_S x20, PT_S4(sp)
+@@ -26,6 +36,10 @@ ENTRY(enter_virtual_machine)
+ 	REG_S x25, PT_S9(sp)
+ 	REG_S x26, PT_S10(sp)
+ 	REG_S x27, PT_S11(sp)
++	REG_S x28, PT_T3(sp)
++	REG_S x29, PT_T4(sp)
++	REG_S x30, PT_T5(sp)
++	REG_S x31, PT_T6(sp)
+ 	/* restore guest General Purpose Registers. */
+ 	REG_L x1,  PT_RA(a0)
+     /* sp load value from bsp by hret */
+@@ -63,20 +77,20 @@ ENTRY(enter_virtual_machine)
+ 
+ ret_from_guest:
+ 	/* Save A0 in Stack, and load kvm_vcpu_arch pointer to A0. */
+-	REG_S x10, -PT_RA(sp)
++	REG_S x10, -8(sp)
+ 	REG_L x10, PT_A0(sp)
+ 	/* Store guest General Purpose Registers. */
+ 	REG_S x1,  PT_RA(a0)
+ 	/* SP(X2) has been saved to bsp. */
+ 	REG_S x3,  PT_GP(a0)
+-	/* TP(X3) has been saved to btp. */
++	/* TP(X4) has been saved to btp. */
+ 	REG_S x5,  PT_T0(a0)
+ 	REG_S x6,  PT_T1(a0)
+ 	REG_S x7,  PT_T2(a0)
+ 	REG_S x8,  PT_S0(a0)
+ 	REG_S x9,  PT_S1(a0)
+-	REG_S x11, PT_A1(a0)
+ 	/* A0 have saved in Stack. */
++	REG_S x11, PT_A1(a0)
+ 	REG_S x12, PT_A2(a0)
+ 	REG_S x13, PT_A3(a0)
+ 	REG_S x14, PT_A4(a0)
+@@ -98,7 +112,7 @@ ret_from_guest:
+ 	REG_S x30, PT_T5(a0)
+ 	REG_S x31, PT_T6(a0)
+ 	/* Save guest A0/TP/SP in kvm_vcpu_arch. */
+-	REG_L t0,  -PT_RA(sp)
++	REG_L t0,  -8(sp)
+ 	REG_S t0,  PT_A0(a0)
+ 	csrr t1,   btp
+ 	REG_S t0,  PT_TP(a0)
+@@ -107,9 +121,19 @@ ret_from_guest:
+ 	/* Load host context. */
+ 	REG_L ra,  PT_RA(sp)
+ 	REG_L gp,  PT_GP(sp)
++	REG_L x5,  PT_T0(sp)
++	REG_L x6,  PT_T1(sp)
++	REG_L x7,  PT_T2(sp)
+ 	REG_L x8,  PT_S0(sp)
+ 	REG_L x9,  PT_S1(sp)
+-	REG_L x10, PT_A0(sp) /* Save kvm_vcpu_arch pointer. */
++    /* x10(A0) has been loaded */
++	REG_L x11, PT_A1(sp)
++	REG_L x12, PT_A2(sp)
++	REG_L x13, PT_A3(sp)
++	REG_L x14, PT_A4(sp)
++	REG_L x15, PT_A5(sp)
++	REG_L x16, PT_A6(sp)
++	REG_L x17, PT_A7(sp)
+ 	REG_L x18, PT_S2(sp)
+ 	REG_L x19, PT_S3(sp)
+ 	REG_L x20, PT_S4(sp)
+@@ -120,6 +144,10 @@ ret_from_guest:
+ 	REG_L x25, PT_S9(sp)
+ 	REG_L x26, PT_S10(sp)
+ 	REG_L x27, PT_S11(sp)
+-	addi sp, sp, -(PT_SIZE_ON_STACK)
++	REG_L x28, PT_T3(sp)
++	REG_L x29, PT_T4(sp)
++	REG_L x30, PT_T5(sp)
++	REG_L x31, PT_T6(sp)
++	addi sp, sp, PT_SIZE_ON_STACK
+ 	ret
+ ENDPROC(enter_virtual_machine)
+-- 
+2.7.4
+
