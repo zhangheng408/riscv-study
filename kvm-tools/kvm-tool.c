@@ -19,21 +19,6 @@ int vcpu_fd = -1;
 align_addr *rom_base = NULL;
 align_addr *dram_base = NULL;
 
-void main_loop(void){
-    char c;
-
-    while(1){
-        scanf("%c", &c);
-        switch(c){
-            case 'q':
-            case 'Q':
-                return;
-            default:
-                printf("unknown cmd\n");
-        }
-    }
-}
-
 int main(int argc, char **argv){
     int ret;
 
@@ -63,8 +48,6 @@ int main(int argc, char **argv){
 	if(ret < 0){
 		goto free_mem;
 	}
-
-    main_loop();
 
 free_mem:
 	free_align_addr(rom_base);
