@@ -1,0 +1,34 @@
+From c810208395689cf3d0126a31326902b4ccf2fc9e Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 8 Mar 2018 14:57:48 +0800
+Subject: [PATCH 27/27] fix a bug in swap_foreground_background_csrs
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/op_helper.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index be45330..0f53782 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -770,14 +770,14 @@ static inline void swap_foreground_background_sip(CPURISCVState *env)
+ {
+     target_ulong bsip = env->bsip;
+     env->bsip = env->mip & env->mideleg;
+-    env->mip = (env->mip & ~env->mideleg) | (env->bsip & env->mideleg);
++    env->mip = (env->mip & ~env->mideleg) | (bsip & env->mideleg);
+ }
+ 
+ static inline void swap_foreground_background_sie(CPURISCVState *env)
+ {
+     target_ulong bsie = env->bsie;
+     env->bsie = env->mie & env->mideleg;
+-    env->mie = (env->mie & ~env->mideleg) | (env->bsip & env->mideleg);
++    env->mie = (env->mie & ~env->mideleg) | (bsie & env->mideleg);
+ }
+ 
+ void swap_foreground_background_csrs(CPURISCVState *env)
+-- 
+2.7.4
+
