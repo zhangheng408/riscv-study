@@ -1,0 +1,26 @@
+From e17bc993fa7cb84b3e95c3c61b25d72775ae018d Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sun, 11 Mar 2018 14:56:11 +0800
+Subject: [PATCH 28/30] add host_page_fault exception name
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/helper.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index 8023fd6..b3ff017 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -478,7 +478,7 @@ static const char * const riscv_excp_names[16] = {
+     "machine_ecall",
+     "exec_page_fault",
+     "load_page_fault",
+-    "reserved",
++    "host_page_fault",
+     "store_page_fault"
+ };
+ 
+-- 
+2.7.4
+

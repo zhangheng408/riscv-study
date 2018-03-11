@@ -1,0 +1,33 @@
+From 35ab4e8c468f5572099e32c2f6327c87e0332446 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sun, 11 Mar 2018 14:57:54 +0800
+Subject: [PATCH 30/30] set scause or mcause reg in vm exit
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/helper.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index 7055bb0..3cbd991 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -594,6 +594,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         swap_foreground_background_csrs(env);
+         if(env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
+             /* handle in S-mode */
++            env->scause = fixed_cause;
+             if (hasbadaddr) {
+                 env->stval = env->tval;
+                 env->hvtval = env->vtval;
+@@ -613,6 +614,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+             set_privilege(env, PRV_S);
+         } else {
+             /* handle in M-mode */
++            env->mcause = fixed_cause;
+             if (hasbadaddr) {
+                 env->mtval = env->tval;
+                 env->mvtval = env->vtval;
+-- 
+2.7.4
+

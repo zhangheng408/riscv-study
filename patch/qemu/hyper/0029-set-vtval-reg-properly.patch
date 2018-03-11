@@ -1,0 +1,44 @@
+From b102c96a73278aa1a62f26aadde983f0dae3ba3c Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sun, 11 Mar 2018 14:57:00 +0800
+Subject: [PATCH 29/30] set vtval reg properly
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/helper.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index b3ff017..7055bb0 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -92,8 +92,8 @@ static target_ulong get_host_physical_address(CPURISCVState *env,
+     int va_bits = PGSHIFT + levels * ptidxbits;
+     target_ulong mask = (1L << (TARGET_LONG_BITS - (va_bits - 1))) - 1;
+     target_ulong masked_msbs = (addr >> (va_bits - 1)) & mask;
++    env->vtval = addr;
+     if (masked_msbs != 0 && masked_msbs != mask) {
+-        env->mvtval = env->hvtval = addr;
+         return 0;
+     }
+ 
+@@ -108,7 +108,6 @@ static target_ulong get_host_physical_address(CPURISCVState *env,
+         target_ulong pte = ldq_phys(cs->as, pte_addr);
+         target_ulong ppn = pte >> PTE_PPN_SHIFT;
+ 
+-        env->mvtval = env->hvtval = pte_addr;
+         if (PTE_TABLE(pte)) { /* next level of page table */
+             base = ppn << PGSHIFT;
+         } else if ((pte & PTE_U) ? (mode == PRV_S) && (!sum) : !(mode == PRV_S)) {
+@@ -125,7 +124,7 @@ static target_ulong get_host_physical_address(CPURISCVState *env,
+             stq_phys(cs->as, pte_addr, ldq_phys(cs->as, pte_addr) | PTE_A |
+                     ((access_type == MMU_DATA_STORE) * PTE_D));
+ 
+-            env->mvtval = env->hvtval = 0;
++            env->vtval = 0;
+             /* for superpage mappings, make a fake leaf PTE for the TLB's
+                benefit. */
+             target_ulong vpn = addr >> PGSHIFT;
+-- 
+2.7.4
+
