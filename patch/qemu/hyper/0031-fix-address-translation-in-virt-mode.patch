@@ -1,0 +1,68 @@
+From ea278feae0cf7ced22534cea48ed7fdbe81e9003 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Mon, 12 Mar 2018 16:12:28 +0800
+Subject: [PATCH 31/31] fix address translation in virt mode
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/helper.c | 23 +++++++++--------------
+ 1 file changed, 9 insertions(+), 14 deletions(-)
+
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index 3cbd991..91ae423 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -128,7 +128,8 @@ static target_ulong get_host_physical_address(CPURISCVState *env,
+             /* for superpage mappings, make a fake leaf PTE for the TLB's
+                benefit. */
+             target_ulong vpn = addr >> PGSHIFT;
+-            return (ppn | (vpn & ((1L << ptshift) - 1))) << PGSHIFT;
++            return ((ppn | (vpn & ((1L << ptshift) - 1))) << PGSHIFT)
++                | (addr & ((1UL << PGSHIFT) - 1));
+         }
+     }
+     return 0;
+@@ -169,12 +170,6 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
+     if (env->priv_ver >= PRIV_VERSION_1_10_0) {
+         if (get_field(env->satp, SATP_MODE) == VM_1_10_MBARE) {
+             mode = PRV_M;
+-            if (virt_mode == 1) {
+-                address = get_host_physical_address(env, address);
+-                if (address == 0) {
+-                    return TRANSLATE_HOST_FAIL;
+-                }
+-            }
+         }
+     } else {
+         if (get_field(env->mstatus, MSTATUS_VM) == VM_1_09_MBARE) {
+@@ -190,7 +185,13 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
+ 
+     if (mode == PRV_M) {
+         target_ulong msb_mask = (((target_ulong)2) << (TARGET_LONG_BITS - 1)) - 1;
+-                                        /*0x7FFFFFFFFFFFFFFF; */
++        /*0x7FFFFFFFFFFFFFFF; */
++        if (virt_mode == 1) {
++            address = get_host_physical_address(env, address);
++            if (address == 0) {
++                return TRANSLATE_HOST_FAIL;
++            }
++        }
+         *physical = address & msb_mask;
+         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+         return TRANSLATE_SUCCESS;
+@@ -204,12 +205,6 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
+ 
+     if (env->priv_ver >= PRIV_VERSION_1_10_0) {
+         base = get_field(env->satp, SATP_PPN) << PGSHIFT;
+-        if (virt_mode == 1) {
+-            base = get_host_physical_address(env, base);
+-            if (base == 0) {
+-                return TRANSLATE_HOST_FAIL;
+-            }
+-        }
+         sum = get_field(env->mstatus, MSTATUS_SUM);
+         vm = get_field(env->satp, SATP_MODE);
+         switch (vm) {
+-- 
+2.7.4
+
