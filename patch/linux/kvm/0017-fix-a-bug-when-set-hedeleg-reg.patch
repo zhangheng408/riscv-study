@@ -1,0 +1,40 @@
+From e12e24f471da610c9ec202c61f5305055180f1d7 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Mon, 12 Mar 2018 13:37:46 +0800
+Subject: [PATCH 17/17] fix a bug when set hedeleg reg
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/kvm/kvm_riscv.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index 060617d..1cef7e6 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -500,14 +500,14 @@ int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
+ 	vcpu->arch.pc = kvm->arch.kernel_entry;
+ 	vcpu->arch.prv = SR_PS;
+ 
+-	vcpu->arch.hedeleg = EXC_INST_MISALIGNED
+-		| EXC_INST_ACCESS
+-		| EXC_LOAD_ACCESS
+-		| EXC_STORE_ACCESS
+-		| EXC_SYSCALL //Environment call from U-mode
+-		| EXC_INST_PAGE_FAULT
+-		| EXC_LOAD_PAGE_FAULT
+-		| EXC_STORE_PAGE_FAULT;
++	vcpu->arch.hedeleg = (1UL << EXC_INST_MISALIGNED)
++		|(1UL << EXC_INST_ACCESS)
++		|(1UL << EXC_LOAD_ACCESS)
++		|(1UL << EXC_STORE_ACCESS)
++		|(1UL << EXC_SYSCALL) //Environment call from U-mode
++		|(1UL << EXC_INST_PAGE_FAULT)
++		|(1UL << EXC_LOAD_PAGE_FAULT)
++		|(1UL << EXC_STORE_PAGE_FAULT);
+ 	vcpu->arch.hideleg = SIE_SSIE | SIE_STIE;
+ 
+ 	return 0;
+-- 
+2.7.4
+
