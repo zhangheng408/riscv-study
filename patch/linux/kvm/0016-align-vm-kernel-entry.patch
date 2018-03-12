@@ -1,0 +1,27 @@
+From ae5e3ac05429f6360cef78dc70ae6e0be35080b6 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Mon, 12 Mar 2018 13:37:12 +0800
+Subject: [PATCH 16/17] align vm kernel entry
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/include/asm/kvm_host.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index 49c635a..fd65b2f 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -113,7 +113,8 @@ struct kvm_arch_memory_slot {
+ #define DRAM_BASE						_AC(0x80000000, UL)
+ 
+ #define KVM_RISCV_DEFAULT_FDT			(0)
+-#define KVM_RISCV_DEFAULT_KERNEL_ENTRY	(DRAM_BASE + PAGE_SIZE)
++/* kernel entry must be aligned with (PAGE_SIZE * PTRS_PER_PTE) */
++#define KVM_RISCV_DEFAULT_KERNEL_ENTRY	(DRAM_BASE + PAGE_SIZE * PTRS_PER_PTE)
+ 
+ struct kvm_arch {
+ 	unsigned long fdt;
+-- 
+2.7.4
+
