@@ -1,0 +1,39 @@
+From 31db2a1853fe5ac5120b40ee97b9b0f67e4318f9 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Wed, 14 Mar 2018 21:21:13 +0800
+Subject: [PATCH 1/1] delegate hyper call and host page fault to supervisor
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ machine/encoding.h | 1 +
+ machine/minit.c    | 2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/machine/encoding.h b/machine/encoding.h
+index 1463801..8f06d08 100644
+--- a/machine/encoding.h
++++ b/machine/encoding.h
+@@ -970,6 +970,7 @@
+ #define CAUSE_MACHINE_ECALL 0xb
+ #define CAUSE_FETCH_PAGE_FAULT 0xc
+ #define CAUSE_LOAD_PAGE_FAULT 0xd
++#define CAUSE_HOST_PAGE_FAULT 0xe
+ #define CAUSE_STORE_PAGE_FAULT 0xf
+ #endif
+ #ifdef DECLARE_INSN
+diff --git a/machine/minit.c b/machine/minit.c
+index 0fb5f21..12ad5f0 100644
+--- a/machine/minit.c
++++ b/machine/minit.c
+@@ -41,6 +41,8 @@ static void delegate_traps()
+     (1U << CAUSE_LOAD_PAGE_FAULT) |
+     (1U << CAUSE_STORE_PAGE_FAULT) |
+     (1U << CAUSE_BREAKPOINT) |
++    (1U << CAUSE_HYPERVISOR_ECALL) |
++    (1U << CAUSE_HOST_PAGE_FAULT) |
+     (1U << CAUSE_USER_ECALL);
+ 
+   write_csr(mideleg, interrupts);
+-- 
+2.7.4
+
