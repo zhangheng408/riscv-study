@@ -11,7 +11,7 @@
 #define EXT_IO_BASE		0x40000000
 
 #define DRAM_BASE		0x80000000
-#define DRAM_SIZE		0x1000000 /*16M*/
+#define DRAM_SIZE		0x12000000 /* 256M */
 
 int setup_memory(void);
 align_addr *align_malloc(u64 size, u64 align);

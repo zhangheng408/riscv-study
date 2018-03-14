@@ -10,7 +10,7 @@
 
 #include "kvm.h"
 #include "memory.h"
-#include "kernel.h"
+#include "loader.h"
 
 int kvm_fd = -1;
 int vm_fd = -1;
@@ -22,8 +22,8 @@ align_addr *dram_base = NULL;
 int main(int argc, char **argv){
     int ret;
 
-    if(argc < 2){
-        printf("please input kernel file\n");
+    if(argc < 3){
+        printf("please input kernel file and dtb file\n");
         exit(-1);
     }
     printf("main: %p\n", main);
@@ -41,6 +41,11 @@ int main(int argc, char **argv){
 
     if(NULL == load_kernel(argv[1])){
         printf("cannot load kernel file\n");
+		goto free_mem;
+    }
+
+    if(NULL == load_dtb(argv[2])){
+        printf("cannot load dtb file\n");
 		goto free_mem;
     }
 

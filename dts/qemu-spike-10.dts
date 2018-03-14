@@ -1,0 +1,62 @@
+/*
+ * riscv-spike-10.dts - Device Tree file for RISC-V Spike 10 board
+ * Dumped from riscv-qemu.
+ *
+ * Created by Heng Zhang <zhangheng@pku.edu.cn>
+ *
+ * Licensed under GPLv2.
+ */
+/dts-v1/;
+
+/ {
+	#address-cells = <0x2>;
+	#size-cells = <0x2>;
+	compatible = "ucbbar,spike-bare-dev";
+	model = "ucbbar,spike-bare,qemu";
+
+	cpus {
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+		timebase-frequency = <0x989680>;
+
+		cpu@0 {
+			device_type = "cpu";
+			reg = <0x0>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv64imafdc";
+			mmu-type = "riscv,sv48";
+			clock-frequency = <0x3b9aca00>;
+
+			interrupt-controller {
+				#interrupt-cells = <0x1>;
+				interrupt-controller;
+				compatible = "riscv,cpu-intc";
+				linux,phandle = <0x1>;
+				phandle = <0x1>;
+			};
+		};
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x6000000>; /* mem size is 96M(0x6000000) */
+	};
+
+	soc {
+		#address-cells = <0x2>;
+		#size-cells = <0x2>;
+		compatible = "ucbbar,spike-bare-soc";
+		ranges;
+
+		clint@2000000 {
+			interrupts-extended = <0x1 0x3 0x1 0x7>;
+			reg = <0x0 0x2000000 0x0 0xc0000>;
+			compatible = "riscv,clint0";
+		};
+	};
+
+	htif {
+		compatible = "ucb,htif0";
+	};
+};

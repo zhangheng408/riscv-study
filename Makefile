@@ -36,6 +36,8 @@ BUSYBOX_BUILDLOG	:= $(LOG_PATH)/busybox-build.log
 LINUX_BUILDLOG		:= $(LOG_PATH)/linux-build.log
 PK_BUILDLOG			:= $(LOG_PATH)/pk-build.log
 
+DIR_DTS				:= $(DIR_RISCV)/dts
+
 QEMU_MACHINE		?= spike_v1.10
 
 all:
@@ -171,6 +173,10 @@ linux-make:
 	@echo "Copy guest vmlinux to install/"
 	@cp $(DIR_LINUX)/vmlinux						\
 		$(DIR_INSTALL)/vmlinux-guest
+	@echo "Make guest dtb ..."
+	@$(DIR_LINUX)/scripts/dtc/dtc -I dts -o dtb		\
+		$(DIR_DTS)/riscv-spike-10.dts				\
+		-o $(DIR_INSTALL)/spike-10.dtb
 	@echo "Make host config ..."
 	@cp $(DIR_RISCV)/linux-configs/host-config		\
 		$(DIR_LINUX)/.config
@@ -253,7 +259,7 @@ qemu-make:
 qemu-run:
 	@$(DIR_INSTALL)/riscv-qemu/bin/qemu-system-riscv64				\
 		-nographic													\
-		-m 648M													\
+		-m 1948M													\
 		-machine $(QEMU_MACHINE)									\
 		-kernel $(DIR_INSTALL)/riscv-pk/riscv64-unknown-elf/bin/bbl
 

@@ -1,0 +1,56 @@
+From 84fb1a57cf1da4e6fd9d572cb2f7421359a1d8b7 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Wed, 14 Mar 2018 18:34:02 +0800
+Subject: [PATCH 18/18] kvm: add dtb support
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/include/asm/kvm_host.h | 4 ++--
+ arch/riscv/kvm/kvm_riscv.c        | 5 ++++-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index fd65b2f..6227609 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -112,12 +112,12 @@ struct kvm_arch_memory_slot {
+ #define EXT_IO_BASE						_AC(0x40000000, UL)
+ #define DRAM_BASE						_AC(0x80000000, UL)
+ 
+-#define KVM_RISCV_DEFAULT_FDT			(0)
++#define KVM_RISCV_DEFAULT_DTB			(DRAM_BASE + 0xc00000)
+ /* kernel entry must be aligned with (PAGE_SIZE * PTRS_PER_PTE) */
+ #define KVM_RISCV_DEFAULT_KERNEL_ENTRY	(DRAM_BASE + PAGE_SIZE * PTRS_PER_PTE)
+ 
+ struct kvm_arch {
+-	unsigned long fdt;
++	unsigned long dtb_addr;
+ 	unsigned long kernel_entry;
+ 
+ 	/* Guest physical mm */
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index 1cef7e6..ec7285e 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -120,7 +120,7 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
+ 	if (kvm->arch.gpa_mm.pgd == NULL)
+ 		return -ENOMEM;
+ 
+-	kvm->arch.fdt = KVM_RISCV_DEFAULT_FDT;
++	kvm->arch.dtb_addr = KVM_RISCV_DEFAULT_DTB;
+ 	kvm->arch.kernel_entry = KVM_RISCV_DEFAULT_KERNEL_ENTRY;
+ 
+ 	return 0;
+@@ -510,6 +510,9 @@ int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
+ 		|(1UL << EXC_STORE_PAGE_FAULT);
+ 	vcpu->arch.hideleg = SIE_SSIE | SIE_STIE;
+ 
++	vcpu->arch.gpr[10] = vcpu->vcpu_id;
++	vcpu->arch.gpr[11] = kvm->arch.dtb_addr;
++
+ 	return 0;
+ }
+ 
+-- 
+2.7.4
+

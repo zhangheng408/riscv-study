@@ -1,0 +1,50 @@
+/*
+ * riscv-spike-10.dts - Device Tree file for RISC-V Spike 10 board
+ * Dumped from riscv-pk.
+ *
+ * Created by Heng Zhang <zhangheng@pku.edu.cn>
+ *
+ * Licensed under GPLv2.
+ */
+/dts-v1/;
+
+/ {
+  #address-cells = <0x00000002>;
+  #size-cells = <0x00000002>;
+  compatible = "ucbbar,spike-bare-dev";
+  model = "ucbbar,spike-bare,qemu";
+  cpus {
+    #address-cells = <0x00000001>;
+    #size-cells = <0x00000000>;
+    timebase-frequency = <0x00989680>;
+    cpu@0 {
+      device_type = "cpu";
+      reg = <0x00000000>;
+      status = "okay";
+      compatible = "riscv";
+      riscv,isa = "rv64imafdc";
+      mmu-type = "riscv,sv48";
+      clock-frequency = <0x3b9aca00>;
+      interrupt-controller {
+        #interrupt-cells = <0x00000001>;
+        interrupt-controller;
+        compatible = "riscv,cpu-intc";
+        linux,phandle = <0x00000001>;
+        phandle = <0x00000001>;
+      };
+    };
+  };
+  memory@80000000 {
+    device_type = "memory";
+    reg = <0x00000000 0x80000000 0x00000000 0x10000000>; /* 256M */
+  };
+  soc {
+    #address-cells = <0x00000002>;
+    #size-cells = <0x00000002>;
+    compatible = "ucbbar,spike-bare-soc";
+    ranges;
+  };
+  htif {
+    compatible = "ucb,htif0";
+  };
+};
