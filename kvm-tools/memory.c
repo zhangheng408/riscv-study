@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "memory.h"
 #include "kvm.h"
@@ -22,6 +23,7 @@ align_addr *align_malloc(u64 size, u64 align){
 		printf("%s: alloc 0x%x + 0x%x fail\n", __func__, size, align);
 		return NULL;
 	}
+	memset(addr->raw_addr, 0, size + align);
 
     addr->align = align;
     addr->size = size;
