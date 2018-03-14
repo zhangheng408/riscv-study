@@ -1,0 +1,30 @@
+From ed90f67c233f1caacf496a2b51f04e004d8af132 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Wed, 14 Mar 2018 21:42:28 +0800
+Subject: [PATCH 32/32] remove unnecessary code in mem access
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ target-riscv/helper.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index 91ae423..c2d689b 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -401,12 +401,6 @@ void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
+ void riscv_cpu_unassigned_access(CPUState *cs, hwaddr addr, bool is_write,
+         bool is_exec, int unused, unsigned size)
+ {
+-    RISCVCPU *cpu = RISCV_CPU(cs);
+-    CPURISCVState *env = &cpu->env;
+-
+-    if (env->virt_mode) {
+-        return;
+-    }
+     printf("unassigned address not implemented for riscv\n");
+     printf("are you trying to fetch instructions from an MMIO page?\n");
+     printf("unassigned Address: %016" PRIx64 "\n", addr);
+-- 
+2.7.4
+
