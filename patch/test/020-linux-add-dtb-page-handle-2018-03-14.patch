@@ -1,0 +1,210 @@
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index fd65b2f..6227609 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -112,12 +112,12 @@ struct kvm_arch_memory_slot {
+ #define EXT_IO_BASE						_AC(0x40000000, UL)
+ #define DRAM_BASE						_AC(0x80000000, UL)
+ 
+-#define KVM_RISCV_DEFAULT_FDT			(0)
++#define KVM_RISCV_DEFAULT_DTB			(DRAM_BASE + 0xc00000)
+ /* kernel entry must be aligned with (PAGE_SIZE * PTRS_PER_PTE) */
+ #define KVM_RISCV_DEFAULT_KERNEL_ENTRY	(DRAM_BASE + PAGE_SIZE * PTRS_PER_PTE)
+ 
+ struct kvm_arch {
+-	unsigned long fdt;
++	unsigned long dtb_addr;
+ 	unsigned long kernel_entry;
+ 
+ 	/* Guest physical mm */
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index 1cef7e6..4c71b0a 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -120,7 +120,7 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
+ 	if (kvm->arch.gpa_mm.pgd == NULL)
+ 		return -ENOMEM;
+ 
+-	kvm->arch.fdt = KVM_RISCV_DEFAULT_FDT;
++	kvm->arch.dtb_addr = KVM_RISCV_DEFAULT_DTB;
+ 	kvm->arch.kernel_entry = KVM_RISCV_DEFAULT_KERNEL_ENTRY;
+ 
+ 	return 0;
+@@ -262,13 +262,14 @@ int handle_vm_exit(struct kvm_vcpu *vcpu)
+ 
+ 	scause = csr_read_clear(scause, ~0L);
+ 	switch (scause) {
+-		case EXC_H_ECALL:
+-			ret = handle_h_ecall(vcpu);
+-			break;
+ 		case EXC_HOST_PAGE_FAULT:
+ 			ret = handle_host_page_fault(vcpu);
+ 			break;
++		case EXC_H_ECALL:
++			ret = handle_h_ecall(vcpu);
++			//break;
+ 		default:
++			printk("%s: sscause %lx\n", __func__, scause);
+ 			return -ENOIOCTLCMD;
+ 	}
+ 
+@@ -312,6 +313,7 @@ static int build_tdp_page_table(struct kvm_vcpu *vcpu, gfn_t gfn, kvm_pfn_t pfn)
+ 	unsigned long base, pte_addr, pte, tmp_addr;
+ 
+ 	base = (unsigned long)kvm->arch.gpa_mm.pgd;
++	printk("gfn %lx, pfn %lx, base %lx\n", gfn, pfn, base);
+ 	for (;pt_shift >= 0;pt_shift -= pt_idx_bits) {
+ 		idx = (gfn >> pt_shift) & ((1 << pt_idx_bits) - 1);
+ 		pte_addr = base + idx * pte_size;
+@@ -321,6 +323,9 @@ static int build_tdp_page_table(struct kvm_vcpu *vcpu, gfn_t gfn, kvm_pfn_t pfn)
+ 				tmp_addr = __get_free_page(GFP_KERNEL
+ 						| __GFP_RETRY_MAYFAIL | __GFP_ZERO);
+ 				if (tmp_addr == 0) {
++					//printk("%s\n", __func__);
++					//printk("%s: fail to get free page gfn %lx, pfn %lx, pt_shift %x, idx %x, base %lx/%lx, pte_addr %lx/%lx, pte %lx\n",
++					//		__func__, gfn, pfn, pt_shift, idx, base, virt_to_pfn(base), pte_addr, virt_to_pfn(pte_addr), pte);
+ 					return -1;
+ 				}
+ 				pte = (virt_to_pfn(tmp_addr) << _PAGE_PFN_SHIFT)
+@@ -331,6 +336,8 @@ static int build_tdp_page_table(struct kvm_vcpu *vcpu, gfn_t gfn, kvm_pfn_t pfn)
+ 					| _PAGE_USER;
+ 			}
+ 			*((unsigned long *)pte_addr) = pte;
++			//printk("%s: gfn %lx, pfn %lx, pt_shift %x, idx %x, base %lx/%lx, pte_addr %lx/%lx, pte %lx/%lx\n",
++			//		__func__, gfn, pfn, pt_shift, idx, base, virt_to_pfn(base), pte_addr, virt_to_pfn(pte_addr), pte, *((unsigned long *)pte_addr));
+ 		} else {
+ 			tmp_addr = pfn_to_virt(pte >> _PAGE_PFN_SHIFT);
+ 		}
+@@ -340,15 +347,63 @@ static int build_tdp_page_table(struct kvm_vcpu *vcpu, gfn_t gfn, kvm_pfn_t pfn)
+ 	return 0;
+ }
+ 
++static int my_do_page_walk(struct mm_struct *mm, unsigned long hva, kvm_pfn_t *pfn)
++{
++	int levels = 3;
++	int pte_size = 8;
++	int pt_idx_bits = 9;
++	int pt_shift = (levels - 1) * pt_idx_bits;
++	int idx;
++	unsigned long base, pte_addr, pte, tmp_addr, ppn;
++
++	base = (unsigned long)mm->pgd;
++	for (;pt_shift >= 0;pt_shift -= pt_idx_bits) {
++		idx = (hva >> (pt_shift + PAGE_SHIFT)) & ((1 << pt_idx_bits) - 1);
++		pte_addr = base + idx * pte_size;
++		//printk("%s: hva %lx pt_shift %x idx %x base %lx pte_addr %lx\n",
++		//		__func__, hva, pt_shift, idx, base, pte_addr);
++		pte = *((unsigned long *)pte_addr);
++		ppn = pte >> _PAGE_PFN_SHIFT;
++		//printk("pte %lx, ppn %lx, ppn virt %lx\n", pte, ppn, pfn_to_virt(ppn));
++		if (((pte) & (_PAGE_PRESENT | _PAGE_READ | _PAGE_WRITE | _PAGE_EXEC)) == _PAGE_PRESENT) {
++			tmp_addr = pfn_to_virt(ppn);
++		} else if (!(pte & _PAGE_PRESENT)) {
++			return -1;
++		} else {
++			*pfn = ppn | ((hva >> PAGE_SHIFT) & ((1L << pt_shift) - 1));
++			//printk("pfn %lx, to virt %lx, current mm %lx\n", *pfn, pfn_to_virt(*pfn), mm);
++			return -1;
++		}
++		base = tmp_addr;
++	}
++
++	return -1;
++}
++
++static int my_gfn_to_pfn(struct kvm_vcpu *vcpu, gfn_t gfn, kvm_pfn_t *pfn)
++{
++	unsigned long hva;
++	struct mm_struct *mm;
++
++	hva = gfn_to_hva(vcpu->kvm, gfn);
++	if (KVM_HVA_ERR_BAD == hva || KVM_HVA_ERR_RO_BAD == hva) {
++		return -1;
++	}
++
++	mm = current->mm;
++	return my_do_page_walk(mm, hva, pfn);
++}
++
+ int handle_host_page_fault(struct kvm_vcpu *vcpu)
+ {
+ 	struct kvm_memory_slot *slot;
+ 	unsigned long gpa = csr_read(hvtval);
+ 	gfn_t gfn;
+-	kvm_pfn_t pfn;
++	kvm_pfn_t pfn, my_pfn;
+ 	bool async, writable;
+ 
+ 	gfn = gpa >> PAGE_SHIFT;
++	my_gfn_to_pfn(vcpu, gfn, &my_pfn);
+ 	slot = kvm_vcpu_gfn_to_memslot(vcpu, gfn);
+ 	if (slot == NULL)
+ 		return -1; /* Maybe mmio, not handle now */
+@@ -356,6 +411,9 @@ int handle_host_page_fault(struct kvm_vcpu *vcpu)
+ 	pfn = __gfn_to_pfn_memslot(slot, gfn, false, &async, false, &writable);
+ 	/* What to do if async is true? */
+ 
++	if(my_pfn != pfn)
++		printk("%s: gpa %lx, my_pfn %lx, pfn %lx\n", __func__, gpa, my_pfn, pfn);
++
+ 	return build_tdp_page_table(vcpu, gfn, pfn);
+ }
+ 
+@@ -510,6 +568,11 @@ int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
+ 		|(1UL << EXC_STORE_PAGE_FAULT);
+ 	vcpu->arch.hideleg = SIE_SSIE | SIE_STIE;
+ 
++	vcpu->arch.gpr[10] = vcpu->vcpu_id;
++	vcpu->arch.gpr[11] = kvm->arch.dtb_addr;
++	printk("vcpu_id %lx, dtb %lx\n",
++			vcpu->arch.gpr[10], vcpu->arch.gpr[11]);
++
+ 	return 0;
+ }
+ 
+diff --git a/mm/memblock.c b/mm/memblock.c
+index 46aacdf..59d238e 100644
+--- a/mm/memblock.c
++++ b/mm/memblock.c
+@@ -1402,7 +1402,7 @@ void * __init memblock_virt_alloc_try_nid_nopanic(
+ {
+ 	void *ptr;
+ 
+-	memblock_dbg("%s: %llu bytes align=0x%llx nid=%d from=0x%llx max_addr=0x%llx %pF\n",
++	printk("%s: %llu bytes align=0x%llx nid=%d from=0x%llx max_addr=0x%llx %pF\n",
+ 		     __func__, (u64)size, (u64)align, nid, (u64)min_addr,
+ 		     (u64)max_addr, (void *)_RET_IP_);
+ 
+diff --git a/mm/percpu.c b/mm/percpu.c
+index 79e3549..ab604a6 100644
+--- a/mm/percpu.c
++++ b/mm/percpu.c
+@@ -1864,6 +1864,7 @@ struct pcpu_alloc_info * __init pcpu_alloc_alloc_info(int nr_groups,
+ 
+ 	ai->groups[0].cpu_map = ptr;
+ 
++	printk("pcpu_alloc_alloc_info ai->groups[0].cpu_map %lx\n", ai->groups[0].cpu_map);
+ 	for (unit = 0; unit < nr_units; unit++)
+ 		ai->groups[0].cpu_map[unit] = NR_CPUS;
+ 
+@@ -2715,6 +2716,7 @@ void __init setup_per_cpu_areas(void)
+ 	ai->atom_size = unit_size;
+ 	ai->alloc_size = unit_size;
+ 	ai->groups[0].nr_units = 1;
++	printk("setup_per_cpu_areas test cpu_map %lx\n", ai->groups[0].cpu_map);
+ 	ai->groups[0].cpu_map[0] = 0;
+ 
+ 	if (pcpu_setup_first_chunk(ai, fc) < 0)
+diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
+index 777d6e8..37aa2d2 100644
+--- a/virt/kvm/kvm_main.c
++++ b/virt/kvm/kvm_main.c
+@@ -1552,6 +1552,8 @@ kvm_pfn_t __gfn_to_pfn_memslot(struct kvm_memory_slot *slot, gfn_t gfn,
+ {
+ 	unsigned long addr = __gfn_to_hva_many(slot, gfn, NULL, write_fault);
+ 
++	printk("%s: gfn %lx, addr(hva) %lx, slot user addr %lx, base gfn %lx\n",
++			__func__, gfn, addr, slot->userspace_addr, slot->base_gfn);
+ 	if (addr == KVM_HVA_ERR_RO_BAD) {
+ 		if (writable)
+ 			*writable = false;

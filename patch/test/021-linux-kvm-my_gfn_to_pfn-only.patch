@@ -1,0 +1,79 @@
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index ec7285e..6d587b6 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -340,15 +340,63 @@ static int build_tdp_page_table(struct kvm_vcpu *vcpu, gfn_t gfn, kvm_pfn_t pfn)
+ 	return 0;
+ }
+ 
++static int my_do_page_walk(struct mm_struct *mm, unsigned long hva, kvm_pfn_t *pfn)
++{
++	int levels = 3;
++	int pte_size = 8;
++	int pt_idx_bits = 9;
++	int pt_shift = (levels - 1) * pt_idx_bits;
++	int idx;
++	unsigned long base, pte_addr, pte, tmp_addr, ppn;
++
++	base = (unsigned long)mm->pgd;
++	for (;pt_shift >= 0;pt_shift -= pt_idx_bits) {
++		idx = (hva >> (pt_shift + PAGE_SHIFT)) & ((1 << pt_idx_bits) - 1);
++		pte_addr = base + idx * pte_size;
++		//printk("%s: hva %lx pt_shift %x idx %x base %lx pte_addr %lx\n",
++		//		__func__, hva, pt_shift, idx, base, pte_addr);
++		pte = *((unsigned long *)pte_addr);
++		ppn = pte >> _PAGE_PFN_SHIFT;
++		//printk("pte %lx, ppn %lx, ppn virt %lx\n", pte, ppn, pfn_to_virt(ppn));
++		if (((pte) & (_PAGE_PRESENT | _PAGE_READ | _PAGE_WRITE | _PAGE_EXEC)) == _PAGE_PRESENT) {
++			tmp_addr = pfn_to_virt(ppn);
++		} else if (!(pte & _PAGE_PRESENT)) {
++			return -1;
++		} else {
++			*pfn = ppn | ((hva >> PAGE_SHIFT) & ((1L << pt_shift) - 1));
++			//printk("pfn %lx, to virt %lx, current mm %lx\n", *pfn, pfn_to_virt(*pfn), mm);
++			return -1;
++		}
++		base = tmp_addr;
++	}
++
++	return -1;
++}
++
++static int my_gfn_to_pfn(struct kvm_vcpu *vcpu, gfn_t gfn, kvm_pfn_t *pfn)
++{
++	unsigned long hva;
++	struct mm_struct *mm;
++
++	hva = gfn_to_hva(vcpu->kvm, gfn);
++	if (KVM_HVA_ERR_BAD == hva || KVM_HVA_ERR_RO_BAD == hva) {
++		return -1;
++	}
++
++	mm = current->mm;
++	return my_do_page_walk(mm, hva, pfn);
++}
++
+ int handle_host_page_fault(struct kvm_vcpu *vcpu)
+ {
+ 	struct kvm_memory_slot *slot;
+ 	unsigned long gpa = csr_read(hvtval);
+ 	gfn_t gfn;
+-	kvm_pfn_t pfn;
++	kvm_pfn_t pfn, my_pfn;
+ 	bool async, writable;
+ 
+ 	gfn = gpa >> PAGE_SHIFT;
++	my_gfn_to_pfn(vcpu, gfn, &my_pfn);
+ 	slot = kvm_vcpu_gfn_to_memslot(vcpu, gfn);
+ 	if (slot == NULL)
+ 		return -1; /* Maybe mmio, not handle now */
+@@ -356,6 +404,9 @@ int handle_host_page_fault(struct kvm_vcpu *vcpu)
+ 	pfn = __gfn_to_pfn_memslot(slot, gfn, false, &async, false, &writable);
+ 	/* What to do if async is true? */
+ 
++	if(my_pfn != pfn)
++		printk("%s: gpa %lx, my_pfn %lx, pfn %lx\n", __func__, gpa, my_pfn, pfn);
++
+ 	return build_tdp_page_table(vcpu, gfn, pfn);
+ }
+ 
