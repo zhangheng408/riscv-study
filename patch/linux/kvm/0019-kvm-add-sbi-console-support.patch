@@ -1,0 +1,55 @@
+From f2f44834f2238aee48c34d51a5de748a4a66d437 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 15 Mar 2018 00:00:46 +0800
+Subject: [PATCH 19/19] kvm add sbi console support
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/kvm/kvm_riscv.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index ec7285e..05e953e 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -269,6 +269,7 @@ int handle_vm_exit(struct kvm_vcpu *vcpu)
+ 			ret = handle_host_page_fault(vcpu);
+ 			break;
+ 		default:
++			printk("%s: unspported vm exit %lx\n", __func__, scause);
+ 			return -ENOIOCTLCMD;
+ 	}
+ 
+@@ -284,9 +285,12 @@ int handle_h_ecall(struct kvm_vcpu *vcpu)
+ 
+ 	switch (h_ecall_type) {
+ 		case SBI_CONSOLE_PUTCHAR:
++			sbi_console_putchar(arg0);
++			break;
+ 		case SBI_CONSOLE_GETCHAR:
++			retval = sbi_console_getchar();
++			break;
+ 		case SBI_SHUTDOWN:
+-			return -1;
+ 		case SBI_SET_TIMER:
+ 		case SBI_SEND_IPI:
+ 		case SBI_REMOTE_SFENCE_VMA:
+@@ -294,9 +298,15 @@ int handle_h_ecall(struct kvm_vcpu *vcpu)
+ 		case SBI_REMOTE_FENCE_I:
+ 		case SBI_CLEAR_IPI:
+ 		default:
++			printk("%s: unspported sbi %x, arg0 %lx, arg1 %lx\n",
++					__func__, h_ecall_type, arg0, arg1);
+ 			return -ENOIOCTLCMD;
+ 	}
+ 	vcpu->arch.gpr[10] = retval;
++	vcpu->arch.pc = csr_read(bpc);
++	/* skip the current ecall instruction. */
++	vcpu->arch.pc += 4;
++	csr_write(bpc, vcpu->arch.pc);
+ 
+ 	return 0;
+ }
+-- 
+2.7.4
+
