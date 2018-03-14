@@ -1,6 +1,7 @@
 DIR_RISCV			:= $(shell pwd)
 DIR_WORKING			:= $(DIR_RISCV)/working
 DIR_INSTALL			:= $(DIR_RISCV)/install
+DIR_PATCH			:= $(DIR_RISCV)/patch
 
 TOOLCHAIN			?= $(DIR_INSTALL)/riscv-gnu-toolchain
 PATH				:= $(TOOLCHAIN)/bin:$(PATH)
@@ -16,6 +17,7 @@ QEMU_BASE			:= 2ab9055
 LINUX_BASE			:= 50c4c4e
 TOOLS_BASE			:= ccf7c12
 BINUTILS_BASE		:= d0176cb
+PK_BASE				:= 2dcae92
 
 BUSYBOX_VERSION		:= 1.26.2
 BUSYBOX_TARBALL		:= /pub/backup/busybox-$(BUSYBOX_VERSION).tar.bz2
@@ -48,7 +50,7 @@ all:
 highfive:
 	@make clean
 	@make tools-new
-	@make toolchain-update
+	@make tools-update
 	@make toolchain-make
 	@make linux-update
 	@make linux-headers-install
@@ -70,14 +72,21 @@ tools-new:
 	@cd $(DIR_WORKING);												\
 		git clone --recursive $(REPO_TOOLS)
 
-toolchain-update:
-	@echo "clean git dir ..."
+tools-update:
+	@echo "clean binuitls git dir ..."
 	@cd $(DIR_BINUTILS);											\
 		git clean -qndf;											\
 		git checkout -fB mprc $(BINUTILS_BASE)
 	@echo "apply binutils patch ..."
 	@cd $(DIR_BINUTILS);											\
-		git am $(DIR_RISCV)/patch/toolchain/binuitls/*
+		git am $(DIR_PATCH)/tools/toolchain/binuitls/*
+	@echo "clean riscv-pk git dir ..."
+	@cd $(DIR_PK);													\
+		git clean -qndf;											\
+		git checkout -fB mprc $(PK_BASE)
+	@echo "apply riscv-pk patch ..."
+	@cd $(DIR_PK);													\
+		git am $(DIR_PATCH)/tools/pk/*
 
 toolchain-make:
 	@if [ -e $(DIR_INSTALL)/riscv-gnu-toolchain ]; then 			\
@@ -137,9 +146,9 @@ linux-update:
 		git checkout -fB mprc $(LINUX_BASE)
 	@echo "apply linux patch ..."
 	@cd $(DIR_LINUX);								\
-		git am $(DIR_RISCV)/patch/linux/*
+		git am $(DIR_PATCH)/linux/*
 	@cd $(DIR_LINUX);								\
-		git am $(DIR_RISCV)/patch/linux/kvm/*
+		git am $(DIR_PATCH)/linux/kvm/*
 
 linux-headers-install:
 	@make -C $(DIR_LINUX)							\
@@ -239,8 +248,8 @@ qemu-update:
 		git checkout -fB mprc $(QEMU_BASE)
 	@echo "apply qemu patch ..."
 	@cd $(DIR_QEMU);								\
-		git am $(DIR_RISCV)/patch/qemu/*;			\
-		git am $(DIR_RISCV)/patch/qemu/hyper/*
+		git am $(DIR_PATCH)/qemu/*;					\
+		git am $(DIR_PATCH)/qemu/hyper/*
 
 qemu-make:
 	@test -d $(LOG_PATH) ||							\
