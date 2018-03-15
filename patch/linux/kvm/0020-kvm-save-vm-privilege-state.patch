@@ -1,0 +1,26 @@
+From 352a2af53919e871c0c920fc7fdc082a3d97c18e Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 15 Mar 2018 12:50:03 +0800
+Subject: [PATCH 20/20] kvm: save vm privilege state
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/kvm/kvm_riscv.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index 05e953e..a7e6c8e 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -247,6 +247,8 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
+ 
+ 		enter_virtual_machine(&vcpu->arch);
+ 
++		vcpu->arch.prv = csr_read(sstatus) & SR_PS;
++
+ 		ret = handle_vm_exit(vcpu);
+ 		if (ret < 0) {
+ 			return ret;
+-- 
+2.7.4
+
