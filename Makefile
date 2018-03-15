@@ -198,6 +198,9 @@ linux-make:
 	@riscv64-unknown-linux-gnu-objdump -D			\
 		$(DIR_LINUX)/vmlinux						\
 		> $(LOG_PATH)/dump.linux.host.log
+	@echo "Copy host vmlinux to install/"
+	@cp $(DIR_LINUX)/vmlinux						\
+		$(DIR_INSTALL)/vmlinux-host
 
 kvm-tool-make:
 	@$(CROSS_PREFIX)gcc								\
