@@ -1,0 +1,42 @@
+From c8696595e67de64e25819705b88636dd085e5b20 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 15 Mar 2018 16:10:37 +0800
+Subject: [PATCH 21/21] delegate external Interrupt to guest OS temporarily
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+
+Now, only HTIF use external Interrupt.
+Just simply delegate it to guest OS.
+---
+ arch/riscv/include/asm/csr.h | 1 +
+ arch/riscv/kvm/kvm_riscv.c   | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/riscv/include/asm/csr.h b/arch/riscv/include/asm/csr.h
+index 9b192d0..97a70dd 100644
+--- a/arch/riscv/include/asm/csr.h
++++ b/arch/riscv/include/asm/csr.h
+@@ -54,6 +54,7 @@
+ /* Interrupt Enable and Interrupt Pending flags */
+ #define SIE_SSIE _AC(0x00000002, UL) /* Software Interrupt Enable */
+ #define SIE_STIE _AC(0x00000020, UL) /* Timer Interrupt Enable */
++#define SIE_SEIE _AC(0x00000200, UL) /* External Interrupt Enable */
+ 
+ #define EXC_INST_MISALIGNED     0
+ #define EXC_INST_ACCESS         1
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index a7e6c8e..03a5a85 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -520,7 +520,7 @@ int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
+ 		|(1UL << EXC_INST_PAGE_FAULT)
+ 		|(1UL << EXC_LOAD_PAGE_FAULT)
+ 		|(1UL << EXC_STORE_PAGE_FAULT);
+-	vcpu->arch.hideleg = SIE_SSIE | SIE_STIE;
++	vcpu->arch.hideleg = SIE_SSIE | SIE_STIE | SIE_SEIE;
+ 
+ 	vcpu->arch.gpr[10] = vcpu->vcpu_id;
+ 	vcpu->arch.gpr[11] = kvm->arch.dtb_addr;
+-- 
+2.7.4
+
