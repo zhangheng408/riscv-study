@@ -1,0 +1,41 @@
+From fc9c3967c99bd89f1451065cbe648d22308ab909 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 15 Mar 2018 16:09:40 +0800
+Subject: [PATCH 33/33] set and clear bsip properly
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ hw/riscv/sifive_clint.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/hw/riscv/sifive_clint.c b/hw/riscv/sifive_clint.c
+index 47a7a44..de1f9ef 100644
+--- a/hw/riscv/sifive_clint.c
++++ b/hw/riscv/sifive_clint.c
+@@ -75,10 +75,23 @@ static void sifive_clint_irq_request(void *opaque, int irq, int level)
+     if(env->irq_flags & 0x10){
+         env->mip |= (MIP_MEIP |
+                 MIP_MEIP & env->mideleg ? MIP_SEIP : 0U);
++        /*
++         * When set external interrupt bit in host OS,
++         * the corresponding bit in guest OS may should set, too.
++         * So do it, when clearing external interrupt bit.
++         */
++        if (env->virt_mode == 0 &&
++                MIP_SEIP & env->mideleg & env->hideleg) {
++            env->bsip |= MIP_SEIP;
++        }
+     }
+     else{
+         env->mip &= ~(MIP_MEIP |
+                 MIP_MEIP & env->mideleg ? MIP_SEIP : 0U);
++        if (env->virt_mode == 0 &&
++                MIP_SEIP & env->mideleg & env->hideleg) {
++            env->bsip &= ~MIP_SEIP;
++        }
+     }
+ 
+     if(env->mip){
+-- 
+2.7.4
+
