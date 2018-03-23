@@ -19,8 +19,9 @@ TOOLS_BASE			:= ccf7c12
 BINUTILS_BASE		:= d0176cb
 PK_BASE				:= 2dcae92
 
-BUSYBOX_VERSION		:= 1.26.2
-BUSYBOX_TARBALL		:= /pub/backup/busybox-$(BUSYBOX_VERSION).tar.bz2
+BUSYBOX_VERSION		?= 1.26.2
+DIR_BUSYBOX_SRC		?= /pub/backup
+BUSYBOX_TARBALL		:= $(DIR_BUSYBOX_SRC)/busybox-$(BUSYBOX_VERSION).tar.bz2
 
 DIR_LINUX			?= $(DIR_WORKING)/riscv-linux
 DIR_TOOLS			?= $(DIR_WORKING)/riscv-tools
@@ -52,6 +53,7 @@ highfive:
 	@make tools-new
 	@make tools-update
 	@make toolchain-make
+	@make busybox
 	@make linux-update
 	@make linux-headers-install
 	@make linux-new
@@ -118,7 +120,7 @@ busybox:
 	@echo "Configure and make busybox ..."
 	@echo "CONFIG_STATIC=y"											\
 		> $(DIR_WORKING)/busybox/.config
-	@echo "CONFIG_CROSS_COMPILER_PREFIX=\"$(CROSS_PREFIX)"" \
+	@echo "CONFIG_CROSS_COMPILER_PREFIX=\"$(CROSS_PREFIX)\"" \
 		>> $(DIR_WORKING)/busybox/.config
 	@echo "CONFIG_SYSROOT=\"$(DIR_SYSROOT)\""	\
 		>> $(DIR_WORKING)/busybox/.config
@@ -154,7 +156,7 @@ linux-headers-install:
 	@make -C $(DIR_LINUX)							\
 		headers_install								\
 		ARCH=riscv									\
-		INSTALL_HDR_PATH=$(DIR_SYSROOT)/usr/
+		INSTALL_HDR_PATH=$(DIR_INSTALL)/usr/
 
 linux-simple-make:
 	@echo "Making (in several minutes) ..."
@@ -205,6 +207,7 @@ linux-make:
 kvm-tool-make:
 	@$(CROSS_PREFIX)gcc								\
 		$(DIR_RISCV)/kvm-tools/*.c					\
+		-I $(DIR_INSTALL)/usr/include				\
 		-static										\
 		-o $(DIR_INSTALL)/kvm-tool
 
