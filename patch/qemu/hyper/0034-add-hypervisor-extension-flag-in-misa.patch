@@ -1,0 +1,62 @@
+From f11fbd6f0217cd0e8a032f733c4ae972f71c05bf Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 5 Apr 2018 19:13:39 +0800
+Subject: [PATCH 34/34] add hypervisor extension flag in misa
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ hw/riscv/spike_v1_10.c | 2 +-
+ target-riscv/cpu.c     | 8 +++++---
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/hw/riscv/spike_v1_10.c b/hw/riscv/spike_v1_10.c
+index 0900152..b854361 100644
+--- a/hw/riscv/spike_v1_10.c
++++ b/hw/riscv/spike_v1_10.c
+@@ -172,7 +172,7 @@ static void riscv_spike_board_init(MachineState *machine)
+     object_initialize(&s->soc, sizeof(s->soc), TYPE_RISCV_HART_ARRAY);
+     object_property_add_child(OBJECT(machine), "soc", OBJECT(&s->soc),
+                               &error_abort);
+-    object_property_set_str(OBJECT(&s->soc), "riscv-imafdcs-priv1.10",
++    object_property_set_str(OBJECT(&s->soc), "riscv-imafdcsh-priv1.10",
+                             "cpu-model", &error_abort);
+     object_property_set_int(OBJECT(&s->soc), smp_cpus, "num-harts",
+                             &error_abort);
+diff --git a/target-riscv/cpu.c b/target-riscv/cpu.c
+index f8bb2eb..f4abbb4 100644
+--- a/target-riscv/cpu.c
++++ b/target-riscv/cpu.c
+@@ -55,10 +55,10 @@ static void riscv_imacs_priv1_10_cpu_init(Object *obj)
+     env->priv_ver = PRIV_VERSION_1_10_0;
+ }
+ 
+-static void riscv_imafdcs_priv1_10_cpu_init(Object *obj)
++static void riscv_imafdcsh_priv1_10_cpu_init(Object *obj)
+ {
+     CPURISCVState *env = &RISCV_CPU(obj)->env;
+-    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC|RVS;
++    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC|RVS|RVH;
+     env->user_ver = USER_VERSION_2_02_0;
+     env->priv_ver = PRIV_VERSION_1_10_0;
+ }
+@@ -67,7 +67,7 @@ static const RISCVCPUInfo riscv_cpus[] = {
+     { "imacs-priv1.9",    riscv_imacs_priv1_9_cpu_init },
+     { "imafdcs-priv1.9",  riscv_imafdcs_priv1_9_cpu_init },
+     { "imacs-priv1.10",   riscv_imacs_priv1_10_cpu_init },
+-    { "imafdcs-priv1.10", riscv_imafdcs_priv1_10_cpu_init },
++    { "imafdcsh-priv1.10", riscv_imafdcsh_priv1_10_cpu_init },
+     { NULL, NULL }
+ };
+ 
+@@ -259,6 +259,8 @@ char* riscv_isa_string(RISCVCPU *cpu)
+     if (cpu->env.misa & RVF) strncat(isa_string, "f", len);
+     if (cpu->env.misa & RVD) strncat(isa_string, "d", len);
+     if (cpu->env.misa & RVC) strncat(isa_string, "c", len);
++    if (cpu->env.misa & RVS) strncat(isa_string, "s", len);
++    if (cpu->env.misa & RVH) strncat(isa_string, "h", len);
+     return isa_string;
+ }
+ 
+-- 
+2.7.4
+
