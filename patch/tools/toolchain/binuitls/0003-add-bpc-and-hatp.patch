@@ -1,0 +1,41 @@
+From 56ab5aa1f2ce82b372a65256e71b28bcff567d42 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Fri, 20 Apr 2018 15:43:53 +0800
+Subject: [PATCH 3/3] add bpc and hatp
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/opcode/riscv-opc.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/include/opcode/riscv-opc.h b/include/opcode/riscv-opc.h
+index b9bae12..383090b 100644
+--- a/include/opcode/riscv-opc.h
++++ b/include/opcode/riscv-opc.h
+@@ -616,9 +616,11 @@
+ #define CSR_HSTATUS 0x9c1
+ #define CSR_HEDELEG 0x9c2
+ #define CSR_HIDELEG 0x9c3
++#define CSR_HATP 0x9c4
+ #define CSR_BSSTATUS 0x900
+ #define CSR_BTP 0x901
+ #define CSR_BSP 0x902
++#define CSR_BPC 0x903
+ #define CSR_BSIE 0x904
+ #define CSR_BSTVEC 0x905
+ #define CSR_BSSCRATCH 0x940
+@@ -1144,9 +1146,11 @@ DECLARE_CSR(hvtval, CSR_HVTVAL)
+ DECLARE_CSR(hstatus, CSR_HSTATUS)
+ DECLARE_CSR(hideleg, CSR_HIDELEG)
+ DECLARE_CSR(hedeleg, CSR_HEDELEG)
++DECLARE_CSR(hatp, CSR_HATP)
+ DECLARE_CSR(bsstatus, CSR_BSSTATUS)
+ DECLARE_CSR(btp, CSR_BTP)
+ DECLARE_CSR(bsp, CSR_BSP)
++DECLARE_CSR(bpc, CSR_BPC)
+ DECLARE_CSR(bsip, CSR_BSIP)
+ DECLARE_CSR(bsie, CSR_BSIE)
+ DECLARE_CSR(bstvec, CSR_BSTVEC)
+-- 
+2.7.4
+

@@ -1,0 +1,110 @@
+From 57a18a2416dd0f101360686831bb5897c8aa1b6d Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Fri, 20 Apr 2018 15:37:24 +0800
+Subject: [PATCH 35/35] rename sgatp to hatp
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/disas/riscv-opc.h | 5 ++++-
+ target-riscv/cpu.h        | 2 +-
+ target-riscv/helper.c     | 6 +++---
+ target-riscv/op_helper.c  | 8 ++++----
+ 4 files changed, 12 insertions(+), 9 deletions(-)
+
+diff --git a/include/disas/riscv-opc.h b/include/disas/riscv-opc.h
+index 423a528..b2b49ca 100644
+--- a/include/disas/riscv-opc.h
++++ b/include/disas/riscv-opc.h
+@@ -554,6 +554,7 @@
+ #define CSR_HSTATUS 0x9c1
+ #define CSR_HEDELEG 0x9c2
+ #define CSR_HIDELEG 0x9c3
++#define CSR_HATP 0x9c4
+ #define CSR_BSSTATUS 0x900
+ #define CSR_BTP 0x901
+ #define CSR_BSP 0x902
+@@ -566,7 +567,6 @@
+ #define CSR_BSTVAL 0x943
+ #define CSR_BSIP 0x944
+ #define CSR_BSATP 0x980
+-#define CSR_SGATP 0x981
+ #define CSR_MSTATUS 0x300
+ #define CSR_MISA 0x301
+ #define CSR_MEDELEG 0x302
+@@ -1051,6 +1051,9 @@ DECLARE_CSR(sip, CSR_SIP)
+ DECLARE_CSR(satp, CSR_SATP)
+ DECLARE_CSR(hvtval, CSR_HVTVAL)
+ DECLARE_CSR(hstatus, CSR_HSTATUS)
++DECLARE_CSR(hideleg, CSR_HIDELEG)
++DECLARE_CSR(hedeleg, CSR_HEDELEG)
++DECLARE_CSR(hatp, CSR_HATP)
+ DECLARE_CSR(bsstatus, CSR_BSSTATUS)
+ DECLARE_CSR(bsip, CSR_BSIP)
+ DECLARE_CSR(bsie, CSR_BSIE)
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index ba92b18..b664d01 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -234,7 +234,7 @@ typedef struct CPURISCVState {
+     /*
+      * Supervisor Guest(Stage 2) Address Translation and Protection Register
+      */
+-    target_ulong sgatp;
++    target_ulong hatp;
+     /* end hypervisor csr*/
+ #endif
+ 
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index c2d689b..c86bee8 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -60,7 +60,7 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+ static target_ulong get_host_physical_address(CPURISCVState *env,
+         target_ulong address)
+ {
+-    if (get_field(env->sgatp, SATP_MODE) == VM_1_10_MBARE) {
++    if (get_field(env->hatp, SATP_MODE) == VM_1_10_MBARE) {
+         return address;
+     }
+ 
+@@ -72,9 +72,9 @@ static target_ulong get_host_physical_address(CPURISCVState *env,
+     int levels, ptidxbits, ptesize, vm, sum;
+     int mxr = get_field(env->mstatus, MSTATUS_MXR);
+ 
+-    base = get_field(env->sgatp, SATP_PPN) << PGSHIFT;
++    base = get_field(env->hatp, SATP_PPN) << PGSHIFT;
+     sum = get_field(env->mstatus, MSTATUS_SUM);
+-    vm = get_field(env->sgatp, SATP_MODE);
++    vm = get_field(env->hatp, SATP_MODE);
+     switch (vm) {
+         case VM_1_10_SV32:
+             levels = 2; ptidxbits = 10; ptesize = 4; break;
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index 0f53782..9d072dc 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -353,8 +353,8 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
+     case CSR_BSATP:
+         env->bsatp = val_to_write;
+         break;
+-    case CSR_SGATP:
+-        env->sgatp = val_to_write;
++    case CSR_HATP:
++        env->hatp = val_to_write;
+         break;
+     case CSR_MVTVAL:
+         env->mvtval = val_to_write;
+@@ -604,8 +604,8 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
+         return env->bstval;
+     case CSR_BSATP:
+         return env->bsatp;
+-    case CSR_SGATP:
+-        return env->sgatp;
++    case CSR_HATP:
++        return env->hatp;
+     case CSR_MVTVAL:
+         return env->mvtval;
+     /* end hypervisor */
+-- 
+2.7.4
+

@@ -1,0 +1,35 @@
+From 67f38595372ef7336b8bbb10acdf27bf9245dab0 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Fri, 20 Apr 2018 15:39:28 +0800
+Subject: [PATCH 22/22] kvm: rename sgatp to hatp
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/kvm/kvm_riscv.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index 03a5a85..07bf1ad 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -556,7 +556,7 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+ 	csr_write(bscause, vcpu->arch.scause);
+ 	csr_write(bstval, vcpu->arch.stval);
+ 	csr_write(bsatp, vcpu->arch.satp);
+-	csr_write(sgatp, virt_to_pfn(vcpu->kvm->arch.gpa_mm.pgd) | SPTBR_MODE);
++	csr_write(hatp, virt_to_pfn(vcpu->kvm->arch.gpa_mm.pgd) | SPTBR_MODE);
+ 
+ 	local_irq_restore(flags);
+ }
+@@ -585,7 +585,7 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
+ 	vcpu->arch.scause = csr_read_clear(bscause, ~0L);
+ 	vcpu->arch.stval = csr_read_clear(bstval, ~0L);
+ 	vcpu->arch.satp = csr_read_clear(bsatp, ~0L);
+-	csr_clear(sgatp, ~0L);
++	csr_clear(hatp, ~0L);
+ 
+ 	local_irq_restore(flags);
+ }
+-- 
+2.7.4
+
