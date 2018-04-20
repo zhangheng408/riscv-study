@@ -54,9 +54,10 @@ highfive:
 	@make tools-update
 	@make toolchain-make
 	@make busybox
+	@make linux-new
 	@make linux-update
 	@make linux-headers-install
-	@make linux-new
+	@make kvm-tool-make
 	@make linux-make
 	@make pk-make
 	@make qemu-update
