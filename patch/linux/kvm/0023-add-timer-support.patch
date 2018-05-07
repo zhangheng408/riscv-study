@@ -1,0 +1,131 @@
+From 54cebe4ee3abef1a881a3f153067ceb6c81878cf Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Mon, 7 May 2018 19:26:59 +0800
+Subject: [PATCH 23/23] add timer support
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/Kconfig           |  3 +++
+ arch/riscv/include/asm/csr.h |  4 ++++
+ arch/riscv/include/asm/irq.h |  2 +-
+ arch/riscv/kernel/irq.c      | 12 +++++++++++-
+ arch/riscv/kernel/time.c     | 24 ++++++++++++------------
+ 5 files changed, 31 insertions(+), 14 deletions(-)
+
+diff --git a/arch/riscv/Kconfig b/arch/riscv/Kconfig
+index a34b863..a64684e 100644
+--- a/arch/riscv/Kconfig
++++ b/arch/riscv/Kconfig
+@@ -39,6 +39,9 @@ config RISCV
+ config MMU
+ 	def_bool y
+ 
++config RISCV_TIMER
++	def_bool y
++
+ # even on 32-bit, physical (and DMA) addresses are > 32-bits
+ config ARCH_PHYS_ADDR_T_64BIT
+ 	def_bool y
+diff --git a/arch/riscv/include/asm/csr.h b/arch/riscv/include/asm/csr.h
+index 97a70dd..dd65dea 100644
+--- a/arch/riscv/include/asm/csr.h
++++ b/arch/riscv/include/asm/csr.h
+@@ -72,6 +72,10 @@
+ 
+ #define EXC_SYSCALL             EXC_U_ECALL
+ 
++#define INT_S_SOFTWARE  		1
++#define INT_S_TIMER 	 		5
++#define INT_S_EXT 		 		9
++
+ #ifndef __ASSEMBLY__
+ 
+ #define csr_swap(csr, val)					\
+diff --git a/arch/riscv/include/asm/irq.h b/arch/riscv/include/asm/irq.h
+index 4dee9d4..876cb74 100644
+--- a/arch/riscv/include/asm/irq.h
++++ b/arch/riscv/include/asm/irq.h
+@@ -21,7 +21,7 @@
+ #define INTERRUPT_CAUSE_TIMER       5
+ #define INTERRUPT_CAUSE_EXTERNAL    9
+ 
+-void riscv_timer_interrupt(void);
++void riscv_timer_interrupt(struct pt_regs *regs);
+ 
+ #include <asm-generic/irq.h>
+ 
+diff --git a/arch/riscv/kernel/irq.c b/arch/riscv/kernel/irq.c
+index 99afb70..365194d 100644
+--- a/arch/riscv/kernel/irq.c
++++ b/arch/riscv/kernel/irq.c
+@@ -43,7 +43,17 @@ asmlinkage void __irq_entry do_IRQ(unsigned int cause, struct pt_regs *regs)
+ 	riscv_intc_irq(cause, regs);
+ #endif
+ 
++	switch (cause) {
++		case INT_S_EXT:
+ #ifdef CONFIG_SBI_CONSOLE
+-	sbi_console_isr();
++			sbi_console_isr();
+ #endif
++			break;
++		case INT_S_TIMER:
++			riscv_timer_interrupt(regs);
++			break;
++		case INT_S_SOFTWARE:
++		default:
++			break;
++	}
+ }
+diff --git a/arch/riscv/kernel/time.c b/arch/riscv/kernel/time.c
+index 2463fcc..f372c21 100644
+--- a/arch/riscv/kernel/time.c
++++ b/arch/riscv/kernel/time.c
+@@ -15,27 +15,23 @@
+ #include <linux/clocksource.h>
+ #include <linux/clockchips.h>
+ #include <linux/delay.h>
+-
+-#ifdef CONFIG_RISCV_TIMER
+-#include <linux/timer_riscv.h>
+-#endif
++#include <linux/profile.h>
+ 
+ #include <asm/sbi.h>
+ 
+ unsigned long riscv_timebase;
+ 
+-DECLARE_PER_CPU(struct clock_event_device, riscv_clock_event);
+-
+-void riscv_timer_interrupt(void)
++void riscv_timer_interrupt(struct pt_regs *regs)
+ {
+-#ifdef CONFIG_RISCV_TIMER
+ 	/*
+-	 * FIXME: This needs to be cleaned up along with the rest of the IRQ
+-	 * handling cleanup.  See irq.c for more details.
++	 * clear timer interrupt, and set next timer
+ 	 */
+-	struct clock_event_device *evdev = this_cpu_ptr(&riscv_clock_event);
++	sbi_set_timer(get_cycles64() + lpj_fine);
+ 
+-	evdev->event_handler(evdev);
++	profile_tick(CPU_PROFILING);
++	xtime_update(1);
++#ifndef CONFIG_SMP
++	update_process_times(user_mode(regs));
+ #endif
+ }
+ 
+@@ -58,4 +54,8 @@ void __init time_init(void)
+ 	lpj_fine = riscv_timebase / HZ;
+ 
+ 	init_clockevent();
++	pr_info("clock inited, riscv_timebase %ld, HZ %d, lpj_fine %ld\n",
++			riscv_timebase, HZ, lpj_fine);
++
++	sbi_set_timer(get_cycles64() + lpj_fine);
+ }
+-- 
+2.7.4
+
