@@ -1,0 +1,119 @@
+diff --git a/hw/riscv/sifive_clint.c b/hw/riscv/sifive_clint.c
+index de1f9ef..b562786 100644
+--- a/hw/riscv/sifive_clint.c
++++ b/hw/riscv/sifive_clint.c
+@@ -94,7 +94,7 @@ static void sifive_clint_irq_request(void *opaque, int irq, int level)
+         }
+     }
+ 
+-    if(env->mip){
++    if(env->mip & env->mie){
+         cpu_interrupt(cs, CPU_INTERRUPT_HARD);
+     }
+     else{
+@@ -136,6 +136,9 @@ static void sifive_clint_timer_update(CPURISCVState *env)
+  */
+ static void sifive_clint_timer_expire(CPURISCVState *env)
+ {
++	printd("timer expire, pc %lx, int %lx/%lx/%lx/%lx, priv %lx/%lx, rtc %lx\n",
++			env->pc, env->mip, env->mie, env->mideleg, env->hideleg,
++			env->priv, env->virt_mode, cpu_riscv_read_rtc());
+     /* do not call update here */
+     env->mip |= MIP_MTIP;
+     qemu_irq_raise(env->irq[3]);
+@@ -143,6 +146,7 @@ static void sifive_clint_timer_expire(CPURISCVState *env)
+ 
+ static void sifive_clint_write_timecmp(CPURISCVState *env, uint64_t value)
+ {
++	printd("pc %lx, update timecmp %lx\n", env->pc, value);
+     env->timecmp = value;
+     env->mip &= ~MIP_MTIP;
+     sifive_clint_timer_update(env);
+diff --git a/include/qemu-common.h b/include/qemu-common.h
+index 9e8b0bd..cd9e045 100644
+--- a/include/qemu-common.h
++++ b/include/qemu-common.h
+@@ -138,4 +138,7 @@ void page_size_init(void);
+  * returned. */
+ bool dump_in_progress(void);
+ 
++#define printd(fmt, ...)                                         \
++    fprintf(stderr, "%s/%d: " fmt, __func__, __LINE__, ##__VA_ARGS__)
++
+ #endif
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index c86bee8..9072d71 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -36,6 +36,10 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+         RISCVCPU *cpu = RISCV_CPU(cs);
+         CPURISCVState *env = &cpu->env;
+         int interruptno = cpu_riscv_hw_interrupts_pending(env);
++		printd("pc %lx, int %lx/%lx/%lx/%lx, priv %lx/%lx, rtc %lx, NO. %x, sie %lx, mie %lx\n",
++				env->pc, env->mip, env->mie, env->mideleg, env->hideleg,
++				env->priv, env->virt_mode, cpu_riscv_read_rtc(), interruptno,
++				get_field(env->mstatus, MSTATUS_SIE), get_field(env->mstatus, MSTATUS_MIE));
+         if (interruptno + 1) {
+             cs->exception_index = 0x70000000U | interruptno;
+             riscv_cpu_do_interrupt(cs);
+@@ -547,6 +551,9 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+             fixed_cause = cs->exception_index;
+         }
+     }
++	printd("pc %lx, fixed cause %lx, int %lx/%lx/%lx/%lx, priv %lx/%lx, rtc %lx\n",
++			env->pc, fixed_cause, env->mip, env->mie, env->mideleg, env->hideleg,
++			env->priv, env->virt_mode, cpu_riscv_read_rtc());
+ 
+     target_ulong backup_epc = env->pc;
+ 
+@@ -583,6 +590,10 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         swap_foreground_background_csrs(env);
+         if(env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
+             /* handle in S-mode */
++			if (cs->exception_index & (0x70000000)) {
++				env->sepc = env->pc;
++				env->pc = env->stvec;
++			}
+             env->scause = fixed_cause;
+             if (hasbadaddr) {
+                 env->stval = env->tval;
+@@ -603,6 +614,8 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+             set_privilege(env, PRV_S);
+         } else {
+             /* handle in M-mode */
++			env->mepc = env->pc;
++			env->pc = env->mtvec;
+             env->mcause = fixed_cause;
+             if (hasbadaddr) {
+                 env->mtval = env->tval;
+@@ -621,6 +634,8 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         }
+         env->virt_mode = 0;
+         tlb_flush(cs, 1);
++		printd("vm exit, pc %lx/%lx,int %lx/%lx/%lx/%lx, priv %lx, rtc %lx\n",
++				env->pc, env->bpc, env->mip, env->mie, env->mideleg, env->hideleg, env->priv, cpu_riscv_read_rtc());
+     } else if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
+         /* handle the trap in S-mode */
+         /* No need to check STVEC for misaligned - lower 2 bits cannot be set */
+@@ -648,6 +663,8 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         env->mepc = backup_epc;
+         env->mcause = fixed_cause;
+ 
++		if (fixed_cause == 0x8000000000000007) {
++		}
+         if (hasbadaddr) {
+             #ifdef RISCV_DEBUG_INTERRUPT
+             fprintf(stderr, "core %d: badaddr 0x" TARGET_FMT_lx "\n",
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index 9d072dc..ee526c7 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -848,6 +848,8 @@ target_ulong helper_hret(CPURISCVState *env, target_ulong cpu_pc_deb)
+     if (!riscv_feature(env, RISCV_FEATURE_RVC) && (retpc & 0x3)) {
+         helper_raise_exception(env, RISCV_EXCP_INST_ADDR_MIS);
+     }
++	printd("vm entry, pc %lx/%lx,int %lx/%lx/%lx/%lx, priv %lx, rtc %lx\n",
++			env->pc, env->bpc, env->mip, env->mie, env->mideleg, env->hideleg, env->priv, cpu_riscv_read_rtc());
+ 
+     target_ulong mstatus = env->mstatus;
+     target_ulong prev_priv = get_field(mstatus, MSTATUS_SPP);

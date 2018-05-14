@@ -1,0 +1,128 @@
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index 6227609..9b3fd94 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -119,6 +119,7 @@ struct kvm_arch_memory_slot {
+ struct kvm_arch {
+ 	unsigned long dtb_addr;
+ 	unsigned long kernel_entry;
++	unsigned long timecmp;
+ 
+ 	/* Guest physical mm */
+ 	struct mm_struct gpa_mm;
+diff --git a/arch/riscv/kernel/irq.c b/arch/riscv/kernel/irq.c
+index 365194d..5fb0a56 100644
+--- a/arch/riscv/kernel/irq.c
++++ b/arch/riscv/kernel/irq.c
+@@ -33,6 +33,8 @@ void __init init_IRQ(void)
+ 
+ asmlinkage void __irq_entry do_IRQ(unsigned int cause, struct pt_regs *regs)
+ {
++	unsigned long sip = csr_read(sip);
++
+ #ifdef CONFIG_RISCV_INTC
+ 	/*
+ 	 * FIXME: We don't want a direct call to riscv_intc_irq here.  The plan
+@@ -43,17 +45,15 @@ asmlinkage void __irq_entry do_IRQ(unsigned int cause, struct pt_regs *regs)
+ 	riscv_intc_irq(cause, regs);
+ #endif
+ 
+-	switch (cause) {
+-		case INT_S_EXT:
++	if(sip & SIE_SEIE) {
+ #ifdef CONFIG_SBI_CONSOLE
+-			sbi_console_isr();
++		sbi_console_isr();
+ #endif
+-			break;
+-		case INT_S_TIMER:
+-			riscv_timer_interrupt(regs);
+-			break;
+-		case INT_S_SOFTWARE:
+-		default:
+-			break;
+ 	}
++
++	if (sip & SIE_STIE) {
++		riscv_timer_interrupt(regs);
++	}
++
++	csr_clear(scause, ~0L);
+ }
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index 07bf1ad..44266cb 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -228,6 +228,28 @@ int kvm_arch_vcpu_ioctl_set_guest_debug(struct kvm_vcpu *vcpu,
+ 	return -ENOIOCTLCMD;
+ }
+ 
++static void inject_exception(struct kvm_vcpu *vcpu, unsigned long exception, bool interrupt)
++{
++	vcpu->arch.sepc = vcpu->arch.pc;
++	vcpu->arch.pc = vcpu->arch.stvec;
++	vcpu->arch.scause = exception;
++	if (interrupt) {
++		vcpu->arch.scause |= 1UL<<63;
++	}
++	if (vcpu->arch.sstatus | SR_IE) {
++		vcpu->arch.sstatus |= SR_PIE;
++	} else {
++		vcpu->arch.sstatus &= ~SR_PIE;
++	}
++	if (vcpu->arch.prv) {
++		vcpu->arch.sstatus |= SR_PS;
++	} else {
++		vcpu->arch.sstatus &= ~SR_PS;
++	}
++	vcpu->arch.sstatus &= ~SR_IE;
++	vcpu->arch.prv = 1;
++}
++
+ extern asmlinkage void enter_virtual_machine(void *);
+ 
+ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
+@@ -236,6 +258,16 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
+ 
+ 	for (;;) {
+ 		/*
++		 * inject timer interrupt
++		 */
++		if (get_cycles64() >= vcpu->kvm->arch.timecmp) {
++			csr_set(bsip, SIE_STIE);
++		} else {
++			csr_clear(bsip, SIE_STIE);
++		}
++	    csr_clear(scause, ~0L);
++
++		/*
+ 		 * setup sstatus, prepare going into vm.
+ 		 * leave sstatus.spie as before.
+ 		 */
+@@ -270,6 +302,12 @@ int handle_vm_exit(struct kvm_vcpu *vcpu)
+ 		case EXC_HOST_PAGE_FAULT:
+ 			ret = handle_host_page_fault(vcpu);
+ 			break;
++		case 0:
++			/*
++			 * VM exit because of un delegated interrupt, no need to handle
++			 */
++			ret = 1;
++			break;
+ 		default:
+ 			printk("%s: unspported vm exit %lx\n", __func__, scause);
+ 			return -ENOIOCTLCMD;
+@@ -293,7 +331,13 @@ int handle_h_ecall(struct kvm_vcpu *vcpu)
+ 			retval = sbi_console_getchar();
+ 			break;
+ 		case SBI_SHUTDOWN:
++			pr_info("vm halted, vcpu id %d, user pid %d\n",
++					vcpu->vcpu_id, vcpu->kvm->userspace_pid);
++			return -1;
+ 		case SBI_SET_TIMER:
++			vcpu->kvm->arch.timecmp = arg0;
++			//sbi_set_timer(arg0);
++			break;
+ 		case SBI_SEND_IPI:
+ 		case SBI_REMOTE_SFENCE_VMA:
+ 		case SBI_REMOTE_SFENCE_VMA_ASID:
