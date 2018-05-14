@@ -106,6 +106,8 @@ toolchain-make:
 		--prefix=$(DIR_INSTALL)/riscv-gnu-toolchain					\
 		> $(TOOLCHAIN_BUILDLOG) 2>&1
 	@echo "make and make install..."
+	@make -C $(DIR_TOOLCHAIN) 										\
+		>> $(TOOLCHAIN_BUILDLOG) 2>&1
 	@make -C $(DIR_TOOLCHAIN) linux									\
 		>> $(TOOLCHAIN_BUILDLOG) 2>&1
 
