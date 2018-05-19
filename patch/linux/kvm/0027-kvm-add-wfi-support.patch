@@ -1,0 +1,87 @@
+From 95d69744c491495b371af9806bfaa8b71487c1df Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sat, 19 May 2018 09:44:05 +0800
+Subject: [PATCH 27/27] kvm: add wfi support
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/include/asm/kvm_host.h |  9 ++++++++-
+ arch/riscv/kvm/kvm_riscv.c        | 14 ++++++++++++++
+ 2 files changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index 9d688cd..deb2f0a 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -26,6 +26,7 @@
+ #define KVM_HALT_POLL_NS_DEFAULT 500000
+ 
+ 
++#define VM_EXIT_WFI              0x10
+ 
+ /*
+  * Special address that contains the comm page, used for reducing # of traps
+@@ -149,7 +150,11 @@ struct kvm_mmu_memory_cache {
+ 
+ 
+ struct kvm_vcpu_arch {
+-	/* Guest context */
++	/*
++     * Guest context
++     * GPR's offset in this struct should be zero.
++     * Function enter_virtual_machine depends on it.
++     * */
+ 	unsigned long gpr[32];
+ 	unsigned long pc;
+ 	unsigned long prv;
+@@ -168,6 +173,8 @@ struct kvm_vcpu_arch {
+ 	unsigned long hstatus;
+ 	unsigned long hedeleg;
+ 	unsigned long hideleg;
++
++	unsigned long wfi;
+ };
+ 
+ int kvm_arch_interrupt_allowed(struct kvm_vcpu *vcpu);
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index c2042a1..1cdf17e 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -254,6 +254,15 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
+ 			csr_clear(bsip, SIE_STIE);
+ 		}
+ 
++		if (vcpu->arch.wfi != 0
++				&& !(((csr_read(sip) & csr_read(hideleg)) | csr_read(bsip))
++					& csr_read(bsie))) {
++			schedule_timeout(HZ);
++			continue;
++		} else {
++			vcpu->arch.wfi = 0;
++		}
++
+ 		/*
+ 		 * Prepare for entering VM.
+ 		 *
+@@ -306,6 +315,10 @@ int handle_vm_exit(struct kvm_vcpu *vcpu, unsigned long cause, unsigned long gpa
+ 		case EXC_HOST_PAGE_FAULT:
+ 			ret = handle_host_page_fault(vcpu, gpa);
+ 			break;
++		case VM_EXIT_WFI:
++			vcpu->arch.wfi = 1;
++			ret = 0;
++			break;
+ 		case 0:
+ 			/*
+ 			 * VM exit because of un delegated interrupt, no need to handle
+@@ -556,6 +569,7 @@ int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
+ 	 */
+ 	vcpu->arch.pc = kvm->arch.kernel_entry;
+ 	vcpu->arch.prv = SR_PS;
++	vcpu->arch.wfi = 0;
+ 
+ 	vcpu->arch.hedeleg = (1UL << EXC_INST_MISALIGNED)
+ 		|(1UL << EXC_INST_ACCESS)
+-- 
+2.7.4
+
