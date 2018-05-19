@@ -1,0 +1,259 @@
+From 73b2cdfad97692c88e48b7294b113433fa156d12 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Fri, 18 May 2018 00:41:53 +0800
+Subject: [PATCH 37/38] adjust VM Entry and VM Exit
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+
+1.previous privilege is saved at hstatus, instead of sstatus.
+2.add hcause to save VM Exit reason
+3.disable interrupt after VM Exit
+---
+ include/disas/riscv-opc.h |  2 ++
+ target-riscv/cpu.h        |  4 ++++
+ target-riscv/cpu_bits.h   |  1 +
+ target-riscv/helper.c     | 60 ++++++++++++++++++++++++-----------------------
+ target-riscv/op_helper.c  | 22 ++++++++---------
+ 5 files changed, 48 insertions(+), 41 deletions(-)
+
+diff --git a/include/disas/riscv-opc.h b/include/disas/riscv-opc.h
+index b2b49ca..cfd8bfc 100644
+--- a/include/disas/riscv-opc.h
++++ b/include/disas/riscv-opc.h
+@@ -555,6 +555,7 @@
+ #define CSR_HEDELEG 0x9c2
+ #define CSR_HIDELEG 0x9c3
+ #define CSR_HATP 0x9c4
++#define CSR_HCAUSE 0x9c5
+ #define CSR_BSSTATUS 0x900
+ #define CSR_BTP 0x901
+ #define CSR_BSP 0x902
+@@ -1054,6 +1055,7 @@ DECLARE_CSR(hstatus, CSR_HSTATUS)
+ DECLARE_CSR(hideleg, CSR_HIDELEG)
+ DECLARE_CSR(hedeleg, CSR_HEDELEG)
+ DECLARE_CSR(hatp, CSR_HATP)
++DECLARE_CSR(hcause, CSR_HCAUSE)
+ DECLARE_CSR(bsstatus, CSR_BSSTATUS)
+ DECLARE_CSR(bsip, CSR_BSIP)
+ DECLARE_CSR(bsie, CSR_BSIE)
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index b67df78..f9b94cb 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -188,6 +188,10 @@ typedef struct CPURISCVState {
+      */
+     target_ulong hstatus;
+     /*
++     * hold the reasion of VM Exit.
++     */
++    target_ulong hcause;
++    /*
+      * Hypervisor Trap Delegation Registers
+      */
+     target_ulong hedeleg;
+diff --git a/target-riscv/cpu_bits.h b/target-riscv/cpu_bits.h
+index 7ddab93..a9c4604 100644
+--- a/target-riscv/cpu_bits.h
++++ b/target-riscv/cpu_bits.h
+@@ -100,6 +100,7 @@
+ #define HSTATUS_SPRV         0x00020000
+ #define HSTATUS_SPV          0x00000400
+ #define HSTATUS_STL          0x00000200
++#define HSTATUS_SPP          0x00000100
+ 
+ #define BSSTATUS_SIE         0x00000002
+ #define BSSTATUS_SPIE        0x00000020
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index 597c016..d2844d4 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -186,7 +186,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
+     if (mode == PRV_M) {
+         target_ulong msb_mask = (((target_ulong)2) << (TARGET_LONG_BITS - 1)) - 1;
+         /*0x7FFFFFFFFFFFFFFF; */
+-        if (virt_mode == 1) {
++        if (virt_mode == 1 && env->priv <= PRV_S) {
+             address = get_host_physical_address(env, address);
+             if (address == 0) {
+                 return TRANSLATE_HOST_FAIL;
+@@ -252,7 +252,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
+ 
+         /* check that physical address of PTE is legal */
+         target_ulong pte_addr = base + idx * ptesize;
+-        if (virt_mode == 1) {
++        if (virt_mode == 1 && env->priv <= PRV_S) {
+             pte_addr = get_host_physical_address(env, pte_addr);
+             if (pte_addr == 0) {
+                 return TRANSLATE_HOST_FAIL;
+@@ -281,7 +281,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
+                benefit. */
+             target_ulong vpn = addr >> PGSHIFT;
+             *physical = (ppn | (vpn & ((1L << ptshift) - 1))) << PGSHIFT;
+-            if (virt_mode == 1) {
++            if (virt_mode == 1 && env->priv <= PRV_S) {
+                 *physical = get_host_physical_address(env, *physical);
+                 if (*physical == 0) {
+                     return TRANSLATE_HOST_FAIL;
+@@ -568,27 +568,32 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+ 
+     if (bit & ((target_ulong)1 << (TARGET_LONG_BITS - 1))) {
+         deleg = env->mideleg, bit &= ~((target_ulong)1 << (TARGET_LONG_BITS - 1));
+-        if (env->virt_mode) {
++        if (env->virt_mode == 1 && env->priv <= PRV_S) {
+             hdeleg = deleg & env->hideleg;
+         }
+     }
+ 
+-    if (env->virt_mode == 1 && bit < 64 && !((hdeleg >> bit) & 1)) {
++    if (env->virt_mode == 1 && env->priv <= PRV_S && bit < 64 && !((hdeleg >> bit) & 1)) {
+         /* trap from virtual machine and not handled int VM */
+-        /* perform vm exit */
++        /* perform VM Exit */
+         env->pc = env->bpc + 4;
+-        //hcause ?
+         env->bpc = backup_epc;
+         swap_gpr_and_background_csrs(env);
+         swap_foreground_background_csrs(env);
+-        if((deleg >> bit) & 1) {
+-            /* handle in S-mode */
++
++        target_ulong s = env->hstatus;
++        s = set_field(s, HSTATUS_SPP, env->priv);
++        csr_write_helper(env, s, CSR_HSTATUS);
++        if((deleg >> bit) & 1) {/* handle in S-mode */
+             if (cs->exception_index & (0x70000000)) {
+-                /* Interrupt not handled in Hypervisor.*/
++                /* Interrupt is not handled in Hypervisor.*/
+                 env->sepc = env->pc;
+                 env->pc = env->stvec;
++                env->scause = fixed_cause;
++                env->hcause = 0;
++            } else {
++                env->hcause = fixed_cause;
+             }
+-            env->scause = fixed_cause;
+             if (hasbadaddr) {
+                 env->stval = env->tval;
+                 env->hvtval = env->vtval;
+@@ -596,37 +601,34 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+                 env->stval = 0;
+                 env->hvtval = 0;
+             }
+-            target_ulong s = env->mstatus;
+-            s = set_field(s, MSTATUS_SPIE, get_field(s, MSTATUS_SIE));
+-            s = set_field(s, MSTATUS_SPP, env->priv);
++            s = env->mstatus;
++            /*
++             * Interrupt should be disabled,
++             * after interrupt routine back to hypervisor.
++             */
++            s = set_field(s, MSTATUS_SPIE, 0);
+             s = set_field(s, MSTATUS_SIE, 0);
++            /* VM Exit performed, Interrupt take as from Host OS.*/
++            s = set_field(s, MSTATUS_SPP, PRV_S);
+             csr_write_helper(env, s, CSR_MSTATUS);
+-            // is SPV necessarty ?
+-            s = env->hstatus;
+-            s = set_field(s, HSTATUS_SPV, env->virt_mode);
+-            csr_write_helper(env, s, CSR_HSTATUS);
+             set_privilege(env, PRV_S);
+-        } else {
+-            env->scause = 0;
+-            env->stval = 0;
+-            env->hvtval = 0;
+-            /* handle in M-mode */
++        } else {/* handle in M-mode */
+             env->mepc = env->pc;
+             env->pc = env->mtvec;
+             env->mcause = fixed_cause;
++            env->hcause = 0;/* No business of Hypervisor.*/
+             if (hasbadaddr) {
+                 env->mtval = env->tval;
+-                env->mvtval = env->vtval;
++                env->hvtval = env->vtval;
+             } else {
+                 env->mtval = 0;
+-                env->mvtval = 0;
++                env->hvtval = 0;
+             }
+-            target_ulong s = env->mstatus;
++            s = env->mstatus;
+             s = set_field(s, MSTATUS_MPIE, get_field(s, MSTATUS_MIE));
+-            s = set_field(s, MSTATUS_MPP, env->priv);
+             s = set_field(s, MSTATUS_MIE, 0);
+-            s = set_field(s, MSTATUS_MPV, env->virt_mode);
+-            /* Prevent interrupt on hret. */
++            s = set_field(s, MSTATUS_MPP, PRV_S);
++            /* Disable interrupt after VM Exit. */
+             s = set_field(s, MSTATUS_SPIE, get_field(s, MSTATUS_SIE));
+             s = set_field(s, MSTATUS_SIE, 0);
+             csr_write_helper(env, s, CSR_MSTATUS);
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index 8547781..58e14b7 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -308,9 +308,12 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
+     case CSR_HVTVAL:
+         env->hvtval = val_to_write;
+         break;
++    case CSR_HCAUSE:
++        env->hcause = val_to_write;
++        break;
+     case CSR_HSTATUS:{
+         target_ulong mask = HSTATUS_VTSR | HSTATUS_VTW | HSTATUS_VTVM
+-            | HSTATUS_SPRV | HSTATUS_SPV | HSTATUS_STL;
++            | HSTATUS_SPRV | HSTATUS_SPV | HSTATUS_STL | HSTATUS_SPP;
+         env->hstatus = val_to_write & mask;
+         break;
+     }
+@@ -579,9 +582,11 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
+      */
+     case CSR_HVTVAL:
+         return env->hvtval;
++    case CSR_HCAUSE:
++        return env->hcause;
+     case CSR_HSTATUS: {
+         target_ulong mask = HSTATUS_VTSR | HSTATUS_VTW | HSTATUS_VTVM
+-            | HSTATUS_SPRV | HSTATUS_SPV | HSTATUS_STL;
++            | HSTATUS_SPRV | HSTATUS_SPV | HSTATUS_STL | HSTATUS_SPP;
+         return env->hstatus & mask;
+     }
+     case CSR_HEDELEG:
+@@ -717,7 +722,7 @@ void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write)
+     unsigned csr_read_only = get_field((which), 0xC00) == 3;
+     unsigned csr_hyper = csr_priv == PRV_S && get_field((which), 0xC00) == 2;
+     if (((write) && csr_read_only) || (env->priv < csr_priv)
+-            || (env->virt_mode && csr_hyper)) {
++            || (env->virt_mode == 1 && env->priv <= PRV_S && csr_hyper)) {
+         do_raise_exception_err(env, RISCV_EXCP_ILLEGAL_INST, env->pc);
+     }
+ #endif
+@@ -845,8 +850,7 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
+ 
+ target_ulong helper_hret(CPURISCVState *env, target_ulong cpu_pc_deb)
+ {
+-    if (env->priv < PRV_S
+-            || (env->priv == PRV_S && (env->virt_mode || env->mstatus & MSTATUS_TSR))) {
++    if (env->priv < PRV_S || (env->priv == PRV_S && env->virt_mode == 1)) {
+         helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
+     }
+ 
+@@ -855,14 +859,8 @@ target_ulong helper_hret(CPURISCVState *env, target_ulong cpu_pc_deb)
+         helper_raise_exception(env, RISCV_EXCP_INST_ADDR_MIS);
+     }
+ 
+-    target_ulong mstatus = env->mstatus;
+-    target_ulong prev_priv = get_field(mstatus, MSTATUS_SPP);
+-    mstatus = set_field(mstatus, MSTATUS_SIE,
+-                        get_field(mstatus, MSTATUS_SPIE));
+-    mstatus = set_field(mstatus, MSTATUS_SPIE, 1);
+-    mstatus = set_field(mstatus, MSTATUS_SPP, PRV_U);
++    target_ulong prev_priv = get_field(env->hstatus, HSTATUS_SPP);
+     set_privilege(env, prev_priv);
+-    csr_write_helper(env, mstatus, CSR_MSTATUS);
+ 
+     perform_vm_entry(env);
+ 
+-- 
+2.7.4
+

@@ -1,7 +1,7 @@
-From 54cebe4ee3abef1a881a3f153067ceb6c81878cf Mon Sep 17 00:00:00 2001
+From b52fb4fb730570d48d2a4c69c89ab10ae35cf48d Mon Sep 17 00:00:00 2001
 From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
-Date: Mon, 7 May 2018 19:26:59 +0800
-Subject: [PATCH 23/23] add timer support
+Date: Fri, 18 May 2018 12:02:13 +0800
+Subject: [PATCH 25/26] add time support
 
 Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
 ---
@@ -27,16 +27,16 @@ index a34b863..a64684e 100644
  config ARCH_PHYS_ADDR_T_64BIT
  	def_bool y
 diff --git a/arch/riscv/include/asm/csr.h b/arch/riscv/include/asm/csr.h
-index 97a70dd..dd65dea 100644
+index 97a70dd..7a6d6bd 100644
 --- a/arch/riscv/include/asm/csr.h
 +++ b/arch/riscv/include/asm/csr.h
 @@ -72,6 +72,10 @@
  
  #define EXC_SYSCALL             EXC_U_ECALL
  
-+#define INT_S_SOFTWARE  		1
-+#define INT_S_TIMER 	 		5
-+#define INT_S_EXT 		 		9
++#define INT_S_SOFTWARE          1
++#define INT_S_TIMER             5
++#define INT_S_EXT               9
 +
  #ifndef __ASSEMBLY__
  

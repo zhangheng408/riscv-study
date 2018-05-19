@@ -1,0 +1,111 @@
+From 91ea3ee127a23e79a64ae918aac12921efd3ab38 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Fri, 18 May 2018 14:38:30 +0800
+Subject: [PATCH 26/26] kvm: add virtual time for VM
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/include/asm/kvm_host.h |  1 +
+ arch/riscv/kvm/kvm_riscv.c        | 30 +++++++++++++++++++++++++-----
+ 2 files changed, 26 insertions(+), 5 deletions(-)
+
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index ad9dc46..9d688cd 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -119,6 +119,7 @@ struct kvm_arch_memory_slot {
+ struct kvm_arch {
+ 	unsigned long dtb_addr;
+ 	unsigned long kernel_entry;
++	unsigned long timecmp;
+ 
+ 	/* Guest physical mm */
+ 	struct mm_struct gpa_mm;
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index f95cea2..c2042a1 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -122,6 +122,7 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
+ 
+ 	kvm->arch.dtb_addr = KVM_RISCV_DEFAULT_DTB;
+ 	kvm->arch.kernel_entry = KVM_RISCV_DEFAULT_KERNEL_ENTRY;
++	kvm->arch.timecmp = ~0;
+ 
+ 	return 0;
+ }
+@@ -236,8 +237,24 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
+ 	unsigned long sie;
+ 	unsigned long hcause, gpa;
+ 
++	/*
++	 * Some interrupt is exclusive from now on.
++	 * Now, only SEIP(HTIF) is exclusive by VM.
++	 */
++	csr_write(hedeleg, vcpu->arch.hedeleg);
++	csr_write(hideleg, vcpu->arch.hideleg);
++
+ 	for (;;) {
+ 		/*
++		 * inject timer interrupt
++		 */
++		if (get_cycles64() >= vcpu->kvm->arch.timecmp) {
++			csr_set(bsip, SIE_STIE);
++		} else {
++			csr_clear(bsip, SIE_STIE);
++		}
++
++		/*
+ 		 * Prepare for entering VM.
+ 		 *
+ 		 * 1.disable interrupt from now.
+@@ -270,6 +287,11 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
+ 			break;
+ 		}
+ 	}
++
++	/* Release interrupts excluded by VM. */
++	vcpu->arch.hedeleg = csr_read_clear(hedeleg, ~0L);
++	vcpu->arch.hideleg = csr_read_clear(hideleg, ~0L);
++
+ 	return ret;
+ }
+ 
+@@ -317,6 +339,8 @@ int handle_h_ecall(struct kvm_vcpu *vcpu)
+ 					vcpu->vcpu_id, vcpu->kvm->userspace_pid);
+ 			return -1;
+ 		case SBI_SET_TIMER:
++			vcpu->kvm->arch.timecmp = arg0;
++			break;
+ 		case SBI_SEND_IPI:
+ 		case SBI_REMOTE_SFENCE_VMA:
+ 		case SBI_REMOTE_SFENCE_VMA_ASID:
+@@ -541,7 +565,7 @@ int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
+ 		|(1UL << EXC_INST_PAGE_FAULT)
+ 		|(1UL << EXC_LOAD_PAGE_FAULT)
+ 		|(1UL << EXC_STORE_PAGE_FAULT);
+-	vcpu->arch.hideleg = SIE_SSIE | SIE_STIE | SIE_SEIE;
++	vcpu->arch.hideleg = SIE_SEIE;
+ 
+ 	vcpu->arch.gpr[10] = vcpu->vcpu_id;
+ 	vcpu->arch.gpr[11] = kvm->arch.dtb_addr;
+@@ -563,8 +587,6 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+ 
+ 	csr_write(hvtval, vcpu->arch.hvtval);
+ 	csr_write(hstatus, vcpu->arch.hstatus);
+-	csr_write(hedeleg, vcpu->arch.hedeleg);
+-	csr_write(hideleg, vcpu->arch.hideleg);
+ 	csr_write(bpc, vcpu->arch.pc);
+ 	csr_write(bsp, vcpu->arch.gpr[2]);
+ 	csr_write(btp, vcpu->arch.gpr[4]);
+@@ -594,8 +616,6 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
+ 
+ 	vcpu->arch.hvtval = csr_read_clear(hvtval, ~0L);
+ 	vcpu->arch.hstatus = csr_read_clear(hstatus, ~0L);
+-	vcpu->arch.hedeleg = csr_read_clear(hedeleg, ~0L);
+-	vcpu->arch.hideleg = csr_read_clear(hideleg, ~0L);
+ 	vcpu->arch.pc = csr_read_clear(bpc, ~0L);
+ 	vcpu->arch.sstatus = csr_read_clear(bsstatus, ~0L);
+ 	vcpu->arch.stvec = csr_read_clear(bstvec, ~0L);
+-- 
+2.7.4
+

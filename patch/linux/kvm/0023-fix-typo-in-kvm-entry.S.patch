@@ -1,0 +1,29 @@
+From 335e864197101a9f6ae0549b0ad06bf1eafb2cb9 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 17 May 2018 19:55:15 +0800
+Subject: [PATCH 23/26] fix typo in kvm entry.S
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/kvm/entry.S | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/riscv/kvm/entry.S b/arch/riscv/kvm/entry.S
+index e1af73d..eb90424 100644
+--- a/arch/riscv/kvm/entry.S
++++ b/arch/riscv/kvm/entry.S
+@@ -115,9 +115,9 @@ ret_from_guest:
+ 	REG_L t0,  -8(sp)
+ 	REG_S t0,  PT_A0(a0)
+ 	csrr t1,   btp
+-	REG_S t0,  PT_TP(a0)
++	REG_S t1,  PT_TP(a0)
+ 	csrr t2,   bsp
+-	REG_S t0,  PT_SP(a0)
++	REG_S t2,  PT_SP(a0)
+ 	/* Load host context. */
+ 	REG_L ra,  PT_RA(sp)
+ 	REG_L gp,  PT_GP(sp)
+-- 
+2.7.4
+
