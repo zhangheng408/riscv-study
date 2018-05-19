@@ -1,0 +1,35 @@
+From 7a452d098307f9995f8aa6f7b6e771009512498d Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sat, 19 May 2018 10:31:35 +0800
+Subject: [PATCH 5/5] rename bsip to hvip
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/opcode/riscv-opc.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/opcode/riscv-opc.h b/include/opcode/riscv-opc.h
+index c8f41ce..954f6a0 100644
+--- a/include/opcode/riscv-opc.h
++++ b/include/opcode/riscv-opc.h
+@@ -628,7 +628,7 @@
+ #define CSR_BSEPC 0x941
+ #define CSR_BSCAUSE 0x942
+ #define CSR_BSTVAL 0x943
+-#define CSR_BSIP 0x944
++#define CSR_HVIP 0x944
+ #define CSR_BSATP 0x980
+ #define CSR_MSTATUS 0x300
+ #define CSR_MISA 0x301
+@@ -1153,7 +1153,7 @@ DECLARE_CSR(bsstatus, CSR_BSSTATUS)
+ DECLARE_CSR(btp, CSR_BTP)
+ DECLARE_CSR(bsp, CSR_BSP)
+ DECLARE_CSR(bpc, CSR_BPC)
+-DECLARE_CSR(bsip, CSR_BSIP)
++DECLARE_CSR(hvip, CSR_HVIP)
+ DECLARE_CSR(bsie, CSR_BSIE)
+ DECLARE_CSR(bstvec, CSR_BSTVEC)
+ DECLARE_CSR(bsscratch, CSR_BSSCRATCH)
+-- 
+2.7.4
+

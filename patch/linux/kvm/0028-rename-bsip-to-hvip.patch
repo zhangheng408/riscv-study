@@ -1,0 +1,67 @@
+From 4b5f1cd108e6dd96703786198414dbf387a50075 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sat, 19 May 2018 10:34:48 +0800
+Subject: [PATCH 28/28] rename bsip to hvip
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/include/asm/kvm_host.h |  3 ++-
+ arch/riscv/kvm/kvm_riscv.c        | 10 +++++-----
+ 2 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index deb2f0a..b244aa48 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -160,7 +160,8 @@ struct kvm_vcpu_arch {
+ 	unsigned long prv;
+ 	unsigned long sstatus;
+ 	unsigned long stvec;
+-	unsigned long sip;
++    /* virtual interrupt pending */
++	unsigned long vip;
+ 	unsigned long sie;
+ 	unsigned long sscratch;
+ 	unsigned long sepc;
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index 1cdf17e..7940343 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -249,13 +249,13 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
+ 		 * inject timer interrupt
+ 		 */
+ 		if (get_cycles64() >= vcpu->kvm->arch.timecmp) {
+-			csr_set(bsip, SIE_STIE);
++			csr_set(hvip, SIE_STIE);
+ 		} else {
+-			csr_clear(bsip, SIE_STIE);
++			csr_clear(hvip, SIE_STIE);
+ 		}
+ 
+ 		if (vcpu->arch.wfi != 0
+-				&& !(((csr_read(sip) & csr_read(hideleg)) | csr_read(bsip))
++				&& !(((csr_read(sip) & csr_read(hideleg)) | csr_read(hvip))
+ 					& csr_read(bsie))) {
+ 			schedule_timeout(HZ);
+ 			continue;
+@@ -606,7 +606,7 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+ 	csr_write(btp, vcpu->arch.gpr[4]);
+ 	csr_write(bsstatus, vcpu->arch.sstatus);
+ 	csr_write(bstvec, vcpu->arch.stvec);
+-	csr_write(bsip, vcpu->arch.sip);
++	csr_write(hvip, vcpu->arch.vip);
+ 	csr_write(bsie, vcpu->arch.sie);
+ 	csr_write(bsscratch, vcpu->arch.sscratch);
+ 	csr_write(bsepc, vcpu->arch.sepc);
+@@ -633,7 +633,7 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
+ 	vcpu->arch.pc = csr_read_clear(bpc, ~0L);
+ 	vcpu->arch.sstatus = csr_read_clear(bsstatus, ~0L);
+ 	vcpu->arch.stvec = csr_read_clear(bstvec, ~0L);
+-	vcpu->arch.sip = csr_read_clear(bsip, ~0L);
++	vcpu->arch.vip = csr_read_clear(hvip, ~0L);
+ 	vcpu->arch.sie = csr_read_clear(bsie, ~0L);
+ 	vcpu->arch.sscratch = csr_read_clear(bsscratch, ~0L);
+ 	vcpu->arch.sepc = csr_read_clear(bsepc, ~0L);
+-- 
+2.7.4
+
