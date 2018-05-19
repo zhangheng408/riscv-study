@@ -1,0 +1,172 @@
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index 6227609..9773936 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -119,6 +119,7 @@ struct kvm_arch_memory_slot {
+ struct kvm_arch {
+ 	unsigned long dtb_addr;
+ 	unsigned long kernel_entry;
++	unsigned long timecmp;
+ 
+ 	/* Guest physical mm */
+ 	struct mm_struct gpa_mm;
+@@ -181,7 +182,7 @@ void kvm_arch_vcpu_blocking(struct kvm_vcpu *vcpu);
+ void kvm_arch_vcpu_unblocking(struct kvm_vcpu *vcpu);
+ void kvm_arch_vcpu_block_finish(struct kvm_vcpu *vcpu);
+ 
+-int handle_vm_exit(struct kvm_vcpu *vcpu);
++int handle_vm_exit(struct kvm_vcpu *vcpu, unsigned long scause, unsigned long gpa);
+ int handle_h_ecall(struct kvm_vcpu *vcpu);
+-int handle_host_page_fault(struct kvm_vcpu *vcpu);
++int handle_host_page_fault(struct kvm_vcpu *vcpu, unsigned long gpa);
+ #endif /* __RISCV_KVM_HOST_H__ */
+diff --git a/arch/riscv/kernel/irq.c b/arch/riscv/kernel/irq.c
+index 365194d..713cb90 100644
+--- a/arch/riscv/kernel/irq.c
++++ b/arch/riscv/kernel/irq.c
+@@ -49,11 +49,13 @@ asmlinkage void __irq_entry do_IRQ(unsigned int cause, struct pt_regs *regs)
+ 			sbi_console_isr();
+ #endif
+ 			break;
+-		case INT_S_TIMER:
+-			riscv_timer_interrupt(regs);
++        case INT_S_TIMER:
++            riscv_timer_interrupt(regs);
+ 			break;
+ 		case INT_S_SOFTWARE:
+ 		default:
+ 			break;
+ 	}
++
++	csr_clear(scause, ~0L);
+ }
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index 07bf1ad..2d60ba4 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -228,17 +228,54 @@ int kvm_arch_vcpu_ioctl_set_guest_debug(struct kvm_vcpu *vcpu,
+ 	return -ENOIOCTLCMD;
+ }
+ 
++static void inject_exception(struct kvm_vcpu *vcpu, unsigned long exception, bool interrupt)
++{
++	vcpu->arch.sepc = vcpu->arch.pc;
++	vcpu->arch.pc = vcpu->arch.stvec;
++	vcpu->arch.scause = exception;
++	if (interrupt) {
++		vcpu->arch.scause |= 1UL<<63;
++	}
++	if (vcpu->arch.sstatus | SR_IE) {
++		vcpu->arch.sstatus |= SR_PIE;
++	} else {
++		vcpu->arch.sstatus &= ~SR_PIE;
++	}
++	if (vcpu->arch.prv) {
++		vcpu->arch.sstatus |= SR_PS;
++	} else {
++		vcpu->arch.sstatus &= ~SR_PS;
++	}
++	vcpu->arch.sstatus &= ~SR_IE;
++	vcpu->arch.prv = 1;
++}
++
+ extern asmlinkage void enter_virtual_machine(void *);
+ 
+ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
+ {
+ 	int ret;
++    unsigned long scause, gpa;
+ 
+ 	for (;;) {
+ 		/*
++		 * inject timer interrupt
++		 */
++		if (get_cycles64() >= vcpu->kvm->arch.timecmp) {
++			csr_set(bsip, SIE_STIE);
++		} else {
++			csr_clear(bsip, SIE_STIE);
++		}
++
++		/*
+ 		 * setup sstatus, prepare going into vm.
+ 		 * leave sstatus.spie as before.
+ 		 */
++        if (csr_read_clear(sstatus, SR_IE)) {
++            csr_set(sstatus, SR_PIE);
++        } else {
++            csr_clear(sstatus, SR_PIE);
++        }
+ 		if (vcpu->arch.prv) {
+ 			csr_set(sstatus, SR_PS);
+ 		} else {
+@@ -248,8 +285,16 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
+ 		enter_virtual_machine(&vcpu->arch);
+ 
+ 		vcpu->arch.prv = csr_read(sstatus) & SR_PS;
++        vcpu->arch.pc = csr_read(bpc);
++        scause = csr_read_clear(scause, ~0L);
++        gpa = csr_read(hvtval);
+ 
+-		ret = handle_vm_exit(vcpu);
++        //enable hypervisor int
++        if (csr_read_clear(sstatus, SR_PIE)) {
++            csr_set(sstatus, SR_IE);
++        }
++
++		ret = handle_vm_exit(vcpu, scause, gpa);
+ 		if (ret < 0) {
+ 			return ret;
+ 		}
+@@ -257,18 +302,22 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
+ 	return 0;
+ }
+ 
+-int handle_vm_exit(struct kvm_vcpu *vcpu)
++int handle_vm_exit(struct kvm_vcpu *vcpu, unsigned long scause, unsigned long gpa)
+ {
+-	unsigned long scause;
+ 	int ret;
+ 
+-	scause = csr_read_clear(scause, ~0L);
+ 	switch (scause) {
+ 		case EXC_H_ECALL:
+ 			ret = handle_h_ecall(vcpu);
+ 			break;
+ 		case EXC_HOST_PAGE_FAULT:
+-			ret = handle_host_page_fault(vcpu);
++			ret = handle_host_page_fault(vcpu, gpa);
++			break;
++		case 0:
++			/*
++			 * VM exit because of un delegated interrupt, no need to handle
++			 */
++			ret = 1;
+ 			break;
+ 		default:
+ 			printk("%s: unspported vm exit %lx\n", __func__, scause);
+@@ -293,7 +342,13 @@ int handle_h_ecall(struct kvm_vcpu *vcpu)
+ 			retval = sbi_console_getchar();
+ 			break;
+ 		case SBI_SHUTDOWN:
++			pr_info("vm halted, vcpu id %d, user pid %d\n",
++					vcpu->vcpu_id, vcpu->kvm->userspace_pid);
++			return -1;
+ 		case SBI_SET_TIMER:
++			vcpu->kvm->arch.timecmp = arg0;
++			//sbi_set_timer(arg0);
++			break;
+ 		case SBI_SEND_IPI:
+ 		case SBI_REMOTE_SFENCE_VMA:
+ 		case SBI_REMOTE_SFENCE_VMA_ASID:
+@@ -352,10 +407,9 @@ static int build_tdp_page_table(struct kvm_vcpu *vcpu, gfn_t gfn, kvm_pfn_t pfn)
+ 	return 0;
+ }
+ 
+-int handle_host_page_fault(struct kvm_vcpu *vcpu)
++int handle_host_page_fault(struct kvm_vcpu *vcpu, unsigned long gpa)
+ {
+ 	struct kvm_memory_slot *slot;
+-	unsigned long gpa = csr_read(hvtval);
+ 	gfn_t gfn;
+ 	kvm_pfn_t pfn;
+ 	bool async, writable;
