@@ -1,0 +1,33 @@
+From b22c70a48a9293a604853bee213d494078f1939f Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Thu, 17 May 2018 21:15:28 +0800
+Subject: [PATCH 4/4] add hcause
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/opcode/riscv-opc.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/include/opcode/riscv-opc.h b/include/opcode/riscv-opc.h
+index 383090b..c8f41ce 100644
+--- a/include/opcode/riscv-opc.h
++++ b/include/opcode/riscv-opc.h
+@@ -617,6 +617,7 @@
+ #define CSR_HEDELEG 0x9c2
+ #define CSR_HIDELEG 0x9c3
+ #define CSR_HATP 0x9c4
++#define CSR_HCAUSE 0x9c5
+ #define CSR_BSSTATUS 0x900
+ #define CSR_BTP 0x901
+ #define CSR_BSP 0x902
+@@ -1147,6 +1148,7 @@ DECLARE_CSR(hstatus, CSR_HSTATUS)
+ DECLARE_CSR(hideleg, CSR_HIDELEG)
+ DECLARE_CSR(hedeleg, CSR_HEDELEG)
+ DECLARE_CSR(hatp, CSR_HATP)
++DECLARE_CSR(hcause, CSR_HCAUSE)
+ DECLARE_CSR(bsstatus, CSR_BSSTATUS)
+ DECLARE_CSR(btp, CSR_BTP)
+ DECLARE_CSR(bsp, CSR_BSP)
+-- 
+2.7.4
+
