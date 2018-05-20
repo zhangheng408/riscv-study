@@ -1,0 +1,33 @@
+From 44006ceae49f0c74a1193bc3b9b6f966d3df71fb Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Mon, 21 May 2018 03:29:12 +0800
+Subject: [PATCH 6/6] remove mvtval
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ include/opcode/riscv-opc.h | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/include/opcode/riscv-opc.h b/include/opcode/riscv-opc.h
+index 954f6a0..f30b6af 100644
+--- a/include/opcode/riscv-opc.h
++++ b/include/opcode/riscv-opc.h
+@@ -642,7 +642,6 @@
+ #define CSR_MCAUSE 0x342
+ #define CSR_MTVAL 0x343
+ #define CSR_MIP 0x344
+-#define CSR_MVTVAL 0x345
+ #define CSR_PMPCFG0 0x3a0
+ #define CSR_PMPCFG1 0x3a1
+ #define CSR_PMPCFG2 0x3a2
+@@ -1173,7 +1172,6 @@ DECLARE_CSR(mepc, CSR_MEPC)
+ DECLARE_CSR(mcause, CSR_MCAUSE)
+ DECLARE_CSR(mtval, CSR_MTVAL)
+ DECLARE_CSR(mip, CSR_MIP)
+-DECLARE_CSR(mvtval, CSR_MVTVAL)
+ DECLARE_CSR(pmpcfg0, CSR_PMPCFG0)
+ DECLARE_CSR(pmpcfg1, CSR_PMPCFG1)
+ DECLARE_CSR(pmpcfg2, CSR_PMPCFG2)
+-- 
+2.7.4
+
