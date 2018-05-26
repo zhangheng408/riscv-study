@@ -1,0 +1,272 @@
+From 9245306cdf95c293018e32e05e36e995794fa181 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sat, 26 May 2018 11:07:11 +0800
+Subject: [PATCH 3/3] make some test works
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ benchmarks/common/crt.S      | 11 +-----
+ benchmarks/common/htif.c     | 80 ++++++++++++++++++++++++++++++++++++++++++++
+ benchmarks/common/htif.h     | 23 +++++++++++++
+ benchmarks/common/syscalls.c | 50 ++++-----------------------
+ benchmarks/common/test.ld    |  3 +-
+ 5 files changed, 113 insertions(+), 54 deletions(-)
+ create mode 100644 benchmarks/common/htif.c
+ create mode 100644 benchmarks/common/htif.h
+
+diff --git a/benchmarks/common/crt.S b/benchmarks/common/crt.S
+index d75e81e..4b390c2 100644
+--- a/benchmarks/common/crt.S
++++ b/benchmarks/common/crt.S
+@@ -60,8 +60,7 @@ _start:
+   bltz t0, 1f
+ #endif
+ 2:
+-  li a0, 1
+-  sw a0, tohost, t0
++  j htif_poweroff
+   j 2b
+ 1:
+ 
+@@ -227,11 +226,3 @@ _tdata_end:
+ .section ".tbss.end"
+ .globl _tbss_end
+ _tbss_end:
+-
+-.section ".tohost","aw",@progbits
+-.align 6
+-.globl tohost
+-tohost: .dword 0
+-.align 6
+-.globl fromhost
+-fromhost: .dword 0
+diff --git a/benchmarks/common/htif.c b/benchmarks/common/htif.c
+new file mode 100644
+index 0000000..1a840db
+--- /dev/null
++++ b/benchmarks/common/htif.c
+@@ -0,0 +1,80 @@
++#include "htif.h"
++
++volatile uint64_t tohost __attribute__((section(".htif")));
++volatile uint64_t fromhost __attribute__((section(".htif")));
++volatile int htif_console_buf;
++
++static void __check_fromhost()
++{
++  uint64_t fh = fromhost;
++  if (!fh)
++    return;
++  fromhost = 0;
++
++  // this should be from the console
++  if (FROMHOST_DEV(fh) != 1) {
++      htif_poweroff();
++  }
++  switch (FROMHOST_CMD(fh)) {
++    case 0:
++      htif_console_buf = 1 + (uint8_t)FROMHOST_DATA(fh);
++      break;
++    case 1:
++      break;
++    default:
++      htif_poweroff();
++  }
++}
++
++static void __set_tohost(uintptr_t dev, uintptr_t cmd, uintptr_t data)
++{
++  while (tohost)
++    __check_fromhost();
++  tohost = TOHOST_CMD(dev, cmd, data);
++}
++
++int htif_console_getchar()
++{
++    __check_fromhost();
++    int ch = htif_console_buf;
++    if (ch >= 0) {
++      htif_console_buf = -1;
++      __set_tohost(1, 0, 0);
++    }
++
++  return ch - 1;
++}
++
++static void do_tohost_fromhost(uintptr_t dev, uintptr_t cmd, uintptr_t data)
++{
++    __set_tohost(dev, cmd, data);
++
++    while (1) {
++      uint64_t fh = fromhost;
++      if (fh) {
++        if (FROMHOST_DEV(fh) == dev && FROMHOST_CMD(fh) == cmd) {
++          fromhost = 0;
++          break;
++        }
++        __check_fromhost();
++      }
++    }
++}
++
++void htif_syscall(uintptr_t arg)
++{
++  do_tohost_fromhost(0, 0, arg);
++}
++
++void htif_console_putchar(uint8_t ch)
++{
++    __set_tohost(1, 1, ch);
++}
++
++void htif_poweroff()
++{
++  while (1) {
++    fromhost = 0;
++    tohost = 1;
++  }
++}
+diff --git a/benchmarks/common/htif.h b/benchmarks/common/htif.h
+new file mode 100644
+index 0000000..fa768d8
+--- /dev/null
++++ b/benchmarks/common/htif.h
+@@ -0,0 +1,23 @@
++#ifndef _RISCV_HTIF_H
++#define _RISCV_HTIF_H
++
++#include <stdint.h>
++
++#if __riscv_xlen == 64
++# define TOHOST_CMD(dev, cmd, payload) \
++  (((uint64_t)(dev) << 56) | ((uint64_t)(cmd) << 48) | (uint64_t)(payload))
++#else
++# define TOHOST_CMD(dev, cmd, payload) ({ \
++  if ((dev) || (cmd)) __builtin_trap(); \
++  (payload); })
++#endif
++#define FROMHOST_DEV(fromhost_value) ((uint64_t)(fromhost_value) >> 56)
++#define FROMHOST_CMD(fromhost_value) ((uint64_t)(fromhost_value) << 8 >> 56)
++#define FROMHOST_DATA(fromhost_value) ((uint64_t)(fromhost_value) << 16 >> 16)
++
++void htif_console_putchar(uint8_t);
++int htif_console_getchar();
++void htif_poweroff() __attribute__((noreturn));
++void htif_syscall(uintptr_t);
++
++#endif
+diff --git a/benchmarks/common/syscalls.c b/benchmarks/common/syscalls.c
+index 0a7d6b7..ef06c79 100644
+--- a/benchmarks/common/syscalls.c
++++ b/benchmarks/common/syscalls.c
+@@ -7,32 +7,10 @@
+ #include <limits.h>
+ #include <sys/signal.h>
+ #include "util.h"
+-
+-#define SYS_write 64
++#include "htif.h"
+ 
+ #undef strcmp
+ 
+-extern volatile uint64_t tohost;
+-extern volatile uint64_t fromhost;
+-
+-static uintptr_t syscall(uintptr_t which, uint64_t arg0, uint64_t arg1, uint64_t arg2)
+-{
+-  volatile uint64_t magic_mem[8] __attribute__((aligned(64)));
+-  magic_mem[0] = which;
+-  magic_mem[1] = arg0;
+-  magic_mem[2] = arg1;
+-  magic_mem[3] = arg2;
+-  __sync_synchronize();
+-
+-  tohost = (uintptr_t)magic_mem;
+-  while (fromhost == 0)
+-    ;
+-  fromhost = 0;
+-
+-  __sync_synchronize();
+-  return magic_mem[0];
+-}
+-
+ #define NUM_COUNTERS 2
+ static uintptr_t counters[NUM_COUNTERS];
+ static char* counter_names[NUM_COUNTERS];
+@@ -53,20 +31,14 @@ void setStats(int enable)
+ #undef READ_CTR
+ }
+ 
+-void __attribute__((noreturn)) tohost_exit(uintptr_t code)
+-{
+-  tohost = (code << 1) | 1;
+-  while (1);
+-}
+-
+ uintptr_t __attribute__((weak)) handle_trap(uintptr_t cause, uintptr_t epc, uintptr_t regs[32])
+ {
+-  tohost_exit(1337);
++  htif_poweroff();
+ }
+ 
+ void exit(int code)
+ {
+-  tohost_exit(code);
++  htif_poweroff();
+ }
+ 
+ void abort()
+@@ -76,7 +48,8 @@ void abort()
+ 
+ void printstr(const char* s)
+ {
+-  syscall(SYS_write, 1, (uintptr_t)s, strlen(s));
++    while (*s)
++        htif_console_putchar(*s++);
+ }
+ 
+ void __attribute__((weak)) thread_entry(int cid, int nc)
+@@ -111,6 +84,7 @@ void _init(int cid, int nc)
+ 
+   // only single-threaded programs should ever get here.
+   int ret = main(0, 0);
++  printf("%x returned from main\n", ret);
+ 
+   char buf[NUM_COUNTERS * 32] __attribute__((aligned(64)));
+   char* pbuf = buf;
+@@ -126,17 +100,7 @@ void _init(int cid, int nc)
+ #undef putchar
+ int putchar(int ch)
+ {
+-  static __thread char buf[64] __attribute__((aligned(64)));
+-  static __thread int buflen = 0;
+-
+-  buf[buflen++] = ch;
+-
+-  if (ch == '\n' || buflen == sizeof(buf))
+-  {
+-    syscall(SYS_write, 1, (uintptr_t)buf, buflen);
+-    buflen = 0;
+-  }
+-
++  htif_console_putchar(ch);
+   return 0;
+ }
+ 
+diff --git a/benchmarks/common/test.ld b/benchmarks/common/test.ld
+index 4f8892e..d200aba 100644
+--- a/benchmarks/common/test.ld
++++ b/benchmarks/common/test.ld
+@@ -26,7 +26,8 @@ SECTIONS
+   .text.init : { *(.text.init) }
+ 
+   . = ALIGN(0x1000);
+-  .tohost : { *(.tohost) }
++  .htif : { *(.htif) }
++  . = ALIGN(0x1000);
+ 
+   .text : { *(.text) }
+ 
+-- 
+2.7.4
+

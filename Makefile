@@ -29,6 +29,7 @@ DIR_TOOLCHAIN		?= $(DIR_TOOLS)/riscv-gnu-toolchain
 DIR_BINUTILS		?= $(DIR_TOOLCHAIN)/riscv-binutils-gdb
 DIR_QEMU			?= $(DIR_TOOLCHAIN)/riscv-qemu
 DIR_PK				?= $(DIR_TOOLS)/riscv-pk
+DIR_TESTS			?= $(DIR_TOOLS)/riscv-tests
 DIR_FESVR			?= $(DIR_TOOLS)/riscv-fesvr
 DIR_ISA_SIM			?= $(DIR_TOOLS)/riscv-isa-sim
 
@@ -38,6 +39,7 @@ TOOLCHAIN_BUILDLOG	:= $(LOG_PATH)/toolchain-build.log
 BUSYBOX_BUILDLOG	:= $(LOG_PATH)/busybox-build.log
 LINUX_BUILDLOG		:= $(LOG_PATH)/linux-build.log
 PK_BUILDLOG			:= $(LOG_PATH)/pk-build.log
+TESTS_BUILDLOG		:= $(LOG_PATH)/tests-build.log
 
 DIR_DTS				:= $(DIR_RISCV)/dts
 
@@ -285,3 +287,22 @@ qemu-ucb:
 	@$(DIR_INSTALL)/riscv-qemu/bin/qemu-system-riscv64				\
 		-nographic													\
 		-kernel $(DIR_RISCV)/ucb/bblvmlinuxinitramfs_dynamic_1.9.1
+
+tests-make:
+	@echo "clean old build ..."
+	@rm -rf $(DIR_INSTALL)/riscv-tests
+	@test -d $(LOG_PATH) ||											\
+		mkdir -p $(LOG_PATH)
+	@echo "config..."
+	@cd $(DIR_TESTS);												\
+		./configure													\
+		--prefix=$(DIR_INSTALL)/riscv-tests							\
+		> $(TESTS_BUILDLOG) 2>&1
+	@echo "make..."
+	@make -C $(DIR_TESTS) clean										\
+		>> $(TESTS_BUILDLOG) 2>&1
+	@make -C $(DIR_TESTS)											\
+		>> $(TESTS_BUILDLOG) 2>&1
+	@echo "install..."
+	@make -C $(DIR_TESTS) install									\
+		>> $(TESTS_BUILDLOG) 2>&1

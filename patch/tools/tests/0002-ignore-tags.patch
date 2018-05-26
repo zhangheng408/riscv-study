@@ -1,0 +1,22 @@
+From add6f31c8d3a85083d22bf7016a6add45c144eee Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sat, 26 May 2018 11:06:40 +0800
+Subject: [PATCH 2/3] ignore tags
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/.gitignore b/.gitignore
+index fea456f..6d38277 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -12,3 +12,4 @@
+ /config.log
+ /config.status
+ /build
++tags
+-- 
+2.7.4
+
