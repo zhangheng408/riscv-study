@@ -1,0 +1,602 @@
+diff --git a/Makefile b/Makefile
+index a65fb5d..2fb5930 100644
+--- a/Makefile
++++ b/Makefile
+@@ -279,7 +279,7 @@ qemu-make:
+ qemu-run:
+ 	@$(DIR_INSTALL)/riscv-qemu/bin/qemu-system-riscv64				\
+ 		-nographic													\
+-		-m 1948M													\
++		-m 2948M													\
+ 		-machine $(QEMU_MACHINE)									\
+ 		-kernel $(DIR_INSTALL)/riscv-pk/riscv64-unknown-elf/bin/bbl
+ 
+diff --git a/dts/pk-spike-10.dts b/dts/pk-spike-10.dts
+index 32ee943..e9f2579 100644
+--- a/dts/pk-spike-10.dts
++++ b/dts/pk-spike-10.dts
+@@ -36,7 +36,7 @@
+   };
+   memory@80000000 {
+     device_type = "memory";
+-    reg = <0x00000000 0x80000000 0x00000000 0x10000000>; /* 256M */
++    reg = <0x00000000 0x80000000 0x00000000 0x20000000>; /* 256M */
+   };
+   soc {
+     #address-cells = <0x00000002>;
+diff --git a/initramfs/guest-initramfs.src b/initramfs/guest-initramfs.src
+index 16e7232..3feb41e 100644
+--- a/initramfs/guest-initramfs.src
++++ b/initramfs/guest-initramfs.src
+@@ -131,3 +131,220 @@ slink /sbin/swapoff	/bin/busybox 777 0 0
+ slink /sbin/swapon	/bin/busybox 777 0 0
+ slink /sbin/syslogd	/bin/busybox 777 0 0
+ slink /sbin/udhcpc	/bin/busybox 777 0 0
++
++dir /spec2000 		755 0 0
++file /spec2000/run_spec2000.sh	../../scripts/run_spec2000.sh 755 0 0
++dir /spec2000/164.gzip		755 0 0
++file /spec2000/164.gzip/gzip_base.mprc	../spec2000/benchspec/CINT2000/164.gzip/exe/gzip_base.mprc 755 0 0
++file /spec2000/164.gzip/input.compressed	../spec2000/benchspec/CINT2000/164.gzip/data/test/input/input.compressed 755 0 0
++file /spec2000/164.gzip/gzip.compressed.out.ref ../spec2000/benchspec/CINT2000/164.gzip/data/test/output/input.compressed.out 755 0 0
++dir /spec2000/175.vpr		755 0 0
++file /spec2000/175.vpr/vpr_base.mprc	../spec2000/benchspec/CINT2000/175.vpr/exe/vpr_base.mprc 755 0 0
++file /spec2000/175.vpr/arch.in	../spec2000/benchspec/CINT2000/175.vpr/data/test/input/arch.in 755 0 0
++file /spec2000/175.vpr/net.in	../spec2000/benchspec/CINT2000/175.vpr/data/test/input/net.in 755 0 0
++file /spec2000/175.vpr/place.in	../spec2000/benchspec/CINT2000/175.vpr/data/test/input/place.in 755 0 0
++file /spec2000/175.vpr/place_log.out.ref ../spec2000/benchspec/CINT2000/175.vpr/data/test/output/place_log.out 755 0 0
++file /spec2000/175.vpr/route.out.ref ../spec2000/benchspec/CINT2000/175.vpr/data/test/output/route.out  755 0 0
++dir /spec2000/176.gcc		755 0 0
++file /spec2000/176.gcc/cc1_base.mprc	../spec2000/benchspec/CINT2000/176.gcc/exe/cc1_base.mprc 755 0 0
++file /spec2000/176.gcc/cccp.i ../spec2000/benchspec/CINT2000/176.gcc/data/test/input/cccp.i 755 0 0
++file /spec2000/176.gcc/cccp.s.ref ../spec2000/benchspec/CINT2000/176.gcc/data/test/output/cccp.s  755 0 0
++dir /spec2000/181.mcf		755 0 0
++file /spec2000/181.mcf/mcf_base.mprc	../spec2000/benchspec/CINT2000/181.mcf/exe/mcf_base.mprc 755 0 0
++file /spec2000/181.mcf/inp.in ../spec2000/benchspec/CINT2000/181.mcf/data/test/input/inp.in 755 0 0
++file /spec2000/181.mcf/inp.out.ref ../spec2000/benchspec/CINT2000/181.mcf/data/test/output/inp.out 755 0 0
++dir /spec2000/186.crafty		755 0 0
++file /spec2000/186.crafty/crafty_base.mprc	../spec2000/benchspec/CINT2000/186.crafty/exe/crafty_base.mprc 755 0 0
++file /spec2000/186.crafty/crafty.in ../spec2000/benchspec/CINT2000/186.crafty/data/test/input/crafty.in 755 0 0
++file /spec2000/186.crafty/crafty.out.ref ../spec2000/benchspec/CINT2000/186.crafty/data/test/output/crafty.out 755 0 0
++dir /spec2000/197.parser		755 0 0
++file /spec2000/197.parser/parser_base.mprc	../spec2000/benchspec/CINT2000/197.parser/exe/parser_base.mprc 755 0 0
++file /spec2000/197.parser/2.1.dict ../spec2000/benchspec/CINT2000/197.parser/data/all/input/2.1.dict 755 0 0
++file /spec2000/197.parser/test.in ../spec2000/benchspec/CINT2000/197.parser/data/test/input/test.in 755 0 0
++file /spec2000/197.parser/test.out.ref ../spec2000/benchspec/CINT2000/197.parser/data/test/output/test.out 755 0 0
++dir /spec2000/197.parser/words		755 0 0
++file /spec2000/197.parser/words/words.v.8.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.8.1 755 0 0
++file /spec2000/197.parser/words/words.v.5.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.5.2 755 0 0
++file /spec2000/197.parser/words/words.v.4.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.4.4 755 0 0
++file /spec2000/197.parser/words/words.v.10.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.10.4 755 0 0
++file /spec2000/197.parser/words/words.v.6.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.6.4 755 0 0
++file /spec2000/197.parser/words/words.adj.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.adj.2 755 0 0
++file /spec2000/197.parser/words/words.n.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.3 755 0 0
++file /spec2000/197.parser/words/words.n.2.s ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.2.s 755 0 0
++file /spec2000/197.parser/words/words.v.1.p ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.1.p 755 0 0
++file /spec2000/197.parser/words/words.n.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.4 755 0 0
++file /spec2000/197.parser/words/words.adj.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.adj.1 755 0 0
++file /spec2000/197.parser/words/words.n.c.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.c.1 755 0 0
++file /spec2000/197.parser/words/words.n.2.x ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.2.x 755 0 0
++file /spec2000/197.parser/words/words.v.1.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.1.4 755 0 0
++file /spec2000/197.parser/words/words.adv.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.adv.1 755 0 0
++file /spec2000/197.parser/words/words.v.5.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.5.3 755 0 0
++file /spec2000/197.parser/words/words.v.1.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.1.2 755 0 0
++file /spec2000/197.parser/words/words.v.2.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.2.4 755 0 0
++file /spec2000/197.parser/words/words.y ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.y 755 0 0
++file /spec2000/197.parser/words/words.v.10.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.10.2 755 0 0
++file /spec2000/197.parser/words/words.adv.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.adv.2 755 0 0
++file /spec2000/197.parser/words/words.v.2.5 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.2.5 755 0 0
++file /spec2000/197.parser/words/words.v.2.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.2.1 755 0 0
++file /spec2000/197.parser/words/words.adv.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.adv.3 755 0 0
++file /spec2000/197.parser/words/words.n.p ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.p 755 0 0
++file /spec2000/197.parser/words/words.v.4.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.4.2 755 0 0
++file /spec2000/197.parser/words/words.n.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.1 755 0 0
++file /spec2000/197.parser/words/words.v.10.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.10.1 755 0 0
++file /spec2000/197.parser/words/words.v.2.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.2.3 755 0 0
++file /spec2000/197.parser/words/words.v.6.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.6.1 755 0 0
++file /spec2000/197.parser/words/words.v.2.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.2.2 755 0 0
++file /spec2000/197.parser/words/words.v.5.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.5.1 755 0 0
++file /spec2000/197.parser/words/words.v.8.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.8.4 755 0 0
++file /spec2000/197.parser/words/words.v.10.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.10.3 755 0 0
++file /spec2000/197.parser/words/words.v.4.5 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.4.5 755 0 0
++file /spec2000/197.parser/words/words.v.4.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.4.3 755 0 0
++file /spec2000/197.parser/words/words.s ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.s 755 0 0
++file /spec2000/197.parser/words/words.v.8.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.8.3 755 0 0
++file /spec2000/197.parser/words/words.adj.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.adj.3 755 0 0
++file /spec2000/197.parser/words/words.v.5.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.5.4 755 0 0
++file /spec2000/197.parser/words/words.v.1.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.1.3 755 0 0
++file /spec2000/197.parser/words/words.v.1.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.1.1 755 0 0
++file /spec2000/197.parser/words/words.n.c.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.c.2 755 0 0
++file /spec2000/197.parser/words/words.v.8.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.8.2 755 0 0
++file /spec2000/197.parser/words/words.v.8.5 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.8.5 755 0 0
++file /spec2000/197.parser/words/words.v.6.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.6.3 755 0 0
++file /spec2000/197.parser/words/words.v.6.5 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.6.5 755 0 0
++file /spec2000/197.parser/words/words.v.4.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.4.1 755 0 0
++file /spec2000/197.parser/words/words.v.6.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.6.2 755 0 0
++dir /spec2000/252.eon		755 0 0
++file /spec2000/252.eon/eon_base.mprc	../spec2000/benchspec/CINT2000/252.eon/exe/eon_base.mprc 755 0 0
++file /spec2000/252.eon/eon.dat ../spec2000/benchspec/CINT2000/252.eon/data/test/input/eon.dat 755 0 0
++file /spec2000/252.eon/spectra.dat ../spec2000/benchspec/CINT2000/252.eon/data/test/input/spectra.dat 755 0 0
++file /spec2000/252.eon/materials ../spec2000/benchspec/CINT2000/252.eon/data/test/input/materials 755 0 0
++file /spec2000/252.eon/chair.camera ../spec2000/benchspec/CINT2000/252.eon/data/test/input/chair.camera 755 0 0
++file /spec2000/252.eon/chair.surfaces ../spec2000/benchspec/CINT2000/252.eon/data/test/input/chair.surfaces 755 0 0
++file /spec2000/252.eon/chair.control ../spec2000/benchspec/CINT2000/252.eon/data/test/input/chair.control 755 0 0
++file /spec2000/252.eon/chair.control.cook ../spec2000/benchspec/CINT2000/252.eon/data/test/input/chair.control.cook 755 0 0
++file /spec2000/252.eon/chair.control.rushmeier ../spec2000/benchspec/CINT2000/252.eon/data/test/input/chair.control.rushmeier 755 0 0
++file /spec2000/252.eon/chair.control.kajiya ../spec2000/benchspec/CINT2000/252.eon/data/test/input/chair.control.kajiya 755 0 0
++file /spec2000/252.eon/pixels_out.cook.ref ../spec2000/benchspec/CINT2000/252.eon/data/test/output/pixels_out.cook 755 0 0
++file /spec2000/252.eon/pixels_out.rushmeier.ref ../spec2000/benchspec/CINT2000/252.eon/data/test/output/pixels_out.rushmeier 755 0 0
++file /spec2000/252.eon/pixels_out.kajiya.ref ../spec2000/benchspec/CINT2000/252.eon/data/test/output/pixels_out.kajiya 755 0 0
++dir /spec2000/254.gap		755 0 0
++file /spec2000/254.gap/gap_base.mprc	../spec2000/benchspec/CINT2000/254.gap/exe/gap_base.mprc 755 0 0
++file /spec2000/254.gap/test.in ../spec2000/benchspec/CINT2000/254.gap/data/test/input/test.in 755 0 0
++file /spec2000/254.gap/test.out.ref ../spec2000/benchspec/CINT2000/254.gap/data/test/output/test.out 755 0 0
++file /spec2000/254.gap/rowmodul.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/rowmodul.g 755 0 0
++file /spec2000/254.gap/polyfld.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/polyfld.g 755 0 0
++file /spec2000/254.gap/agnorm.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agnorm.g 755 0 0
++file /spec2000/254.gap/algfld.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/algfld.g 755 0 0
++file /spec2000/254.gap/agsubgrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agsubgrp.g 755 0 0
++file /spec2000/254.gap/sqstuff.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/sqstuff.g 755 0 0
++file /spec2000/254.gap/fpsgpres.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/fpsgpres.g 755 0 0
++file /spec2000/254.gap/ctmapcon.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctmapcon.g 755 0 0
++file /spec2000/254.gap/ratclass.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ratclass.g 755 0 0
++file /spec2000/254.gap/polyfin.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/polyfin.g 755 0 0
++file /spec2000/254.gap/algmat.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/algmat.g 755 0 0
++file /spec2000/254.gap/morpheus.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/morpheus.g 755 0 0
++file /spec2000/254.gap/agcomple.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agcomple.g 755 0 0
++file /spec2000/254.gap/permstbc.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permstbc.g 755 0 0
++file /spec2000/254.gap/ctfilter.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctfilter.g 755 0 0
++file /spec2000/254.gap/field.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/field.g 755 0 0
++file /spec2000/254.gap/list.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/list.g 755 0 0
++file /spec2000/254.gap/pq.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/pq.g 755 0 0
++file /spec2000/254.gap/lattperf.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/lattperf.g 755 0 0
++file /spec2000/254.gap/sq.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/sq.g 755 0 0
++file /spec2000/254.gap/permutat.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permutat.g 755 0 0
++file /spec2000/254.gap/mapping.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/mapping.g 755 0 0
++file /spec2000/254.gap/aghomomo.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/aghomomo.g 755 0 0
++file /spec2000/254.gap/ctcharac.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctcharac.g 755 0 0
++file /spec2000/254.gap/permgrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permgrp.g 755 0 0
++file /spec2000/254.gap/fptietze.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/fptietze.g 755 0 0
++file /spec2000/254.gap/classfun.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/classfun.g 755 0 0
++file /spec2000/254.gap/algebra.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/algebra.g 755 0 0
++file /spec2000/254.gap/abattoir.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/abattoir.g 755 0 0
++file /spec2000/254.gap/permcser.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permcser.g 755 0 0
++file /spec2000/254.gap/numfield.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/numfield.g 755 0 0
++file /spec2000/254.gap/integer.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/integer.g 755 0 0
++file /spec2000/254.gap/tom.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/tom.g 755 0 0
++file /spec2000/254.gap/chartabl.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/chartabl.g 755 0 0
++file /spec2000/254.gap/permhomo.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permhomo.g 755 0 0
++file /spec2000/254.gap/operatio.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/operatio.g 755 0 0
++file /spec2000/254.gap/ctautoms.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctautoms.g 755 0 0
++file /spec2000/254.gap/polynom.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/polynom.g 755 0 0
++file /spec2000/254.gap/aggroup.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/aggroup.g 755 0 0
++file /spec2000/254.gap/ctlattic.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctlattic.g 755 0 0
++file /spec2000/254.gap/cdaggrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/cdaggrp.g 755 0 0
++file /spec2000/254.gap/sagsbgrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/sagsbgrp.g 755 0 0
++file /spec2000/254.gap/permctbl.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permctbl.g 755 0 0
++file /spec2000/254.gap/combinat.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/combinat.g 755 0 0
++file /spec2000/254.gap/ctgapmoc.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctgapmoc.g 755 0 0
++file /spec2000/254.gap/permnorm.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permnorm.g 755 0 0
++file /spec2000/254.gap/grpctbl.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/grpctbl.g 755 0 0
++file /spec2000/254.gap/rational.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/rational.g 755 0 0
++file /spec2000/254.gap/grpprods.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/grpprods.g 755 0 0
++file /spec2000/254.gap/ring.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ring.g 755 0 0
++file /spec2000/254.gap/ctsymmet.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctsymmet.g 755 0 0
++file /spec2000/254.gap/grpcoset.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/grpcoset.g 755 0 0
++file /spec2000/254.gap/matring.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/matring.g 755 0 0
++file /spec2000/254.gap/permcose.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permcose.g 755 0 0
++file /spec2000/254.gap/string.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/string.g 755 0 0
++file /spec2000/254.gap/numtheor.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/numtheor.g 755 0 0
++file /spec2000/254.gap/ctmapusi.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctmapusi.g 755 0 0
++file /spec2000/254.gap/fpgrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/fpgrp.g 755 0 0
++file /spec2000/254.gap/agwords.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agwords.g 755 0 0
++file /spec2000/254.gap/ctgeneri.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctgeneri.g 755 0 0
++file /spec2000/254.gap/grphomom.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/grphomom.g 755 0 0
++file /spec2000/254.gap/aghall.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/aghall.g 755 0 0
++file /spec2000/254.gap/ctbasic.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctbasic.g 755 0 0
++file /spec2000/254.gap/grpelms.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/grpelms.g 755 0 0
++file /spec2000/254.gap/permag.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permag.g 755 0 0
++file /spec2000/254.gap/algfp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/algfp.g 755 0 0
++file /spec2000/254.gap/basic.grp ../spec2000/benchspec/CINT2000/254.gap/data/all/input/basic.grp 755 0 0
++file /spec2000/254.gap/grplatt.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/grplatt.g 755 0 0
++file /spec2000/254.gap/aginters.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/aginters.g 755 0 0
++file /spec2000/254.gap/matrix.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/matrix.g 755 0 0
++file /spec2000/254.gap/ctpermch.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctpermch.g 755 0 0
++file /spec2000/254.gap/alghomom.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/alghomom.g 755 0 0
++file /spec2000/254.gap/onecohom.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/onecohom.g 755 0 0
++file /spec2000/254.gap/module.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/module.g 755 0 0
++file /spec2000/254.gap/domain.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/domain.g 755 0 0
++file /spec2000/254.gap/vecspace.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/vecspace.g 755 0 0
++file /spec2000/254.gap/agprops.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agprops.g 755 0 0
++file /spec2000/254.gap/agcoset.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agcoset.g 755 0 0
++file /spec2000/254.gap/monomial.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/monomial.g 755 0 0
++file /spec2000/254.gap/matgrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/matgrp.g 755 0 0
++file /spec2000/254.gap/permprod.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permprod.g 755 0 0
++file /spec2000/254.gap/permoper.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permoper.g 755 0 0
++file /spec2000/254.gap/polyrat.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/polyrat.g 755 0 0
++file /spec2000/254.gap/ctpgrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctpgrp.g 755 0 0
++file /spec2000/254.gap/agclass.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agclass.g 755 0 0
++file /spec2000/254.gap/group.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/group.g 755 0 0
++file /spec2000/254.gap/gaussian.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/gaussian.g 755 0 0
++file /spec2000/254.gap/polystff.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/polystff.g 755 0 0
++file /spec2000/254.gap/matgrp.grp ../spec2000/benchspec/CINT2000/254.gap/data/all/input/matgrp.grp 755 0 0
++file /spec2000/254.gap/agcent.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agcent.g 755 0 0
++file /spec2000/254.gap/agctbl.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agctbl.g 755 0 0
++file /spec2000/254.gap/rowspace.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/rowspace.g 755 0 0
++file /spec2000/254.gap/saggroup.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/saggroup.g 755 0 0
++file /spec2000/254.gap/init.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/init.g 755 0 0
++file /spec2000/254.gap/permbckt.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permbckt.g 755 0 0
++file /spec2000/254.gap/cyclotom.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/cyclotom.g 755 0 0
++file /spec2000/254.gap/finfield.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/finfield.g 755 0 0
++file /spec2000/254.gap/galois.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/galois.g 755 0 0
++file /spec2000/254.gap/algfac.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/algfac.g 755 0 0
++file /spec2000/254.gap/dispatch.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/dispatch.g 755 0 0
++dir /spec2000/255.vortex		755 0 0
++file /spec2000/255.vortex/vortex_base.mprc	../spec2000/benchspec/CINT2000/255.vortex/exe/vortex_base.mprc 755 0 0
++file /spec2000/255.vortex/lendian.raw ../spec2000/benchspec/CINT2000/255.vortex/data/test/input/lendian.raw 755 0 0
++file /spec2000/255.vortex/lendian.rnv ../spec2000/benchspec/CINT2000/255.vortex/data/test/input/lendian.rnv 755 0 0
++file /spec2000/255.vortex/lendian.wnv ../spec2000/benchspec/CINT2000/255.vortex/data/test/input/lendian.wnv 755 0 0
++file /spec2000/255.vortex/persons.1k ../spec2000/benchspec/CINT2000/255.vortex/data/test/input/persons.1k 755 0 0
++file /spec2000/255.vortex/vortex.out.ref ../spec2000/benchspec/CINT2000/255.vortex/data/test/output/vortex.out 755 0 0
++dir /spec2000/256.bzip2		755 0 0
++file /spec2000/256.bzip2/bzip2_base.mprc	../spec2000/benchspec/CINT2000/256.bzip2/exe/bzip2_base.mprc 755 0 0
++file /spec2000/256.bzip2/input.random ../spec2000/benchspec/CINT2000/256.bzip2/data/test/input/input.random 755 0 0
++file /spec2000/256.bzip2/input.random.out.ref ../spec2000/benchspec/CINT2000/256.bzip2/data/test/output/input.random.out 755 0 0
++dir /spec2000/300.twolf		755 0 0
++file /spec2000/300.twolf/twolf_base.mprc	../spec2000/benchspec/CINT2000/300.twolf/exe/twolf_base.mprc 755 0 0
++file /spec2000/300.twolf/test.blk ../spec2000/benchspec/CINT2000/300.twolf/data/test/input/test.blk 755 0 0
++file /spec2000/300.twolf/test.cel ../spec2000/benchspec/CINT2000/300.twolf/data/test/input/test.cel 755 0 0
++file /spec2000/300.twolf/test.net ../spec2000/benchspec/CINT2000/300.twolf/data/test/input/test.net 755 0 0
++file /spec2000/300.twolf/test.par ../spec2000/benchspec/CINT2000/300.twolf/data/test/input/test.par 755 0 0
++file /spec2000/300.twolf/test.stdout.ref ../spec2000/benchspec/CINT2000/300.twolf/data/test/output/test.stdout 755 0 0
+diff --git a/initramfs/host-initramfs.src b/initramfs/host-initramfs.src
+index 8ed9f98..47737fe 100644
+--- a/initramfs/host-initramfs.src
++++ b/initramfs/host-initramfs.src
+@@ -134,3 +134,220 @@ slink /sbin/swapoff	/bin/busybox 777 0 0
+ slink /sbin/swapon	/bin/busybox 777 0 0
+ slink /sbin/syslogd	/bin/busybox 777 0 0
+ slink /sbin/udhcpc	/bin/busybox 777 0 0
++
++dir /spec2000 		755 0 0
++file /spec2000/run_spec2000.sh	../../scripts/run_spec2000.sh 755 0 0
++dir /spec2000/164.gzip		755 0 0
++file /spec2000/164.gzip/gzip_base.mprc	../spec2000/benchspec/CINT2000/164.gzip/exe/gzip_base.mprc 755 0 0
++file /spec2000/164.gzip/input.compressed	../spec2000/benchspec/CINT2000/164.gzip/data/test/input/input.compressed 755 0 0
++file /spec2000/164.gzip/gzip.compressed.out.ref ../spec2000/benchspec/CINT2000/164.gzip/data/test/output/input.compressed.out 755 0 0
++dir /spec2000/175.vpr		755 0 0
++file /spec2000/175.vpr/vpr_base.mprc	../spec2000/benchspec/CINT2000/175.vpr/exe/vpr_base.mprc 755 0 0
++file /spec2000/175.vpr/arch.in	../spec2000/benchspec/CINT2000/175.vpr/data/test/input/arch.in 755 0 0
++file /spec2000/175.vpr/net.in	../spec2000/benchspec/CINT2000/175.vpr/data/test/input/net.in 755 0 0
++file /spec2000/175.vpr/place.in	../spec2000/benchspec/CINT2000/175.vpr/data/test/input/place.in 755 0 0
++file /spec2000/175.vpr/place_log.out.ref ../spec2000/benchspec/CINT2000/175.vpr/data/test/output/place_log.out 755 0 0
++file /spec2000/175.vpr/route.out.ref ../spec2000/benchspec/CINT2000/175.vpr/data/test/output/route.out  755 0 0
++dir /spec2000/176.gcc		755 0 0
++file /spec2000/176.gcc/cc1_base.mprc	../spec2000/benchspec/CINT2000/176.gcc/exe/cc1_base.mprc 755 0 0
++file /spec2000/176.gcc/cccp.i ../spec2000/benchspec/CINT2000/176.gcc/data/test/input/cccp.i 755 0 0
++file /spec2000/176.gcc/cccp.s.ref ../spec2000/benchspec/CINT2000/176.gcc/data/test/output/cccp.s  755 0 0
++dir /spec2000/181.mcf		755 0 0
++file /spec2000/181.mcf/mcf_base.mprc	../spec2000/benchspec/CINT2000/181.mcf/exe/mcf_base.mprc 755 0 0
++file /spec2000/181.mcf/inp.in ../spec2000/benchspec/CINT2000/181.mcf/data/test/input/inp.in 755 0 0
++file /spec2000/181.mcf/inp.out.ref ../spec2000/benchspec/CINT2000/181.mcf/data/test/output/inp.out 755 0 0
++dir /spec2000/186.crafty		755 0 0
++file /spec2000/186.crafty/crafty_base.mprc	../spec2000/benchspec/CINT2000/186.crafty/exe/crafty_base.mprc 755 0 0
++file /spec2000/186.crafty/crafty.in ../spec2000/benchspec/CINT2000/186.crafty/data/test/input/crafty.in 755 0 0
++file /spec2000/186.crafty/crafty.out.ref ../spec2000/benchspec/CINT2000/186.crafty/data/test/output/crafty.out 755 0 0
++dir /spec2000/197.parser		755 0 0
++file /spec2000/197.parser/parser_base.mprc	../spec2000/benchspec/CINT2000/197.parser/exe/parser_base.mprc 755 0 0
++file /spec2000/197.parser/2.1.dict ../spec2000/benchspec/CINT2000/197.parser/data/all/input/2.1.dict 755 0 0
++file /spec2000/197.parser/test.in ../spec2000/benchspec/CINT2000/197.parser/data/test/input/test.in 755 0 0
++file /spec2000/197.parser/test.out.ref ../spec2000/benchspec/CINT2000/197.parser/data/test/output/test.out 755 0 0
++dir /spec2000/197.parser/words		755 0 0
++file /spec2000/197.parser/words/words.v.8.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.8.1 755 0 0
++file /spec2000/197.parser/words/words.v.5.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.5.2 755 0 0
++file /spec2000/197.parser/words/words.v.4.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.4.4 755 0 0
++file /spec2000/197.parser/words/words.v.10.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.10.4 755 0 0
++file /spec2000/197.parser/words/words.v.6.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.6.4 755 0 0
++file /spec2000/197.parser/words/words.adj.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.adj.2 755 0 0
++file /spec2000/197.parser/words/words.n.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.3 755 0 0
++file /spec2000/197.parser/words/words.n.2.s ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.2.s 755 0 0
++file /spec2000/197.parser/words/words.v.1.p ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.1.p 755 0 0
++file /spec2000/197.parser/words/words.n.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.4 755 0 0
++file /spec2000/197.parser/words/words.adj.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.adj.1 755 0 0
++file /spec2000/197.parser/words/words.n.c.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.c.1 755 0 0
++file /spec2000/197.parser/words/words.n.2.x ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.2.x 755 0 0
++file /spec2000/197.parser/words/words.v.1.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.1.4 755 0 0
++file /spec2000/197.parser/words/words.adv.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.adv.1 755 0 0
++file /spec2000/197.parser/words/words.v.5.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.5.3 755 0 0
++file /spec2000/197.parser/words/words.v.1.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.1.2 755 0 0
++file /spec2000/197.parser/words/words.v.2.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.2.4 755 0 0
++file /spec2000/197.parser/words/words.y ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.y 755 0 0
++file /spec2000/197.parser/words/words.v.10.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.10.2 755 0 0
++file /spec2000/197.parser/words/words.adv.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.adv.2 755 0 0
++file /spec2000/197.parser/words/words.v.2.5 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.2.5 755 0 0
++file /spec2000/197.parser/words/words.v.2.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.2.1 755 0 0
++file /spec2000/197.parser/words/words.adv.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.adv.3 755 0 0
++file /spec2000/197.parser/words/words.n.p ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.p 755 0 0
++file /spec2000/197.parser/words/words.v.4.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.4.2 755 0 0
++file /spec2000/197.parser/words/words.n.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.1 755 0 0
++file /spec2000/197.parser/words/words.v.10.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.10.1 755 0 0
++file /spec2000/197.parser/words/words.v.2.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.2.3 755 0 0
++file /spec2000/197.parser/words/words.v.6.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.6.1 755 0 0
++file /spec2000/197.parser/words/words.v.2.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.2.2 755 0 0
++file /spec2000/197.parser/words/words.v.5.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.5.1 755 0 0
++file /spec2000/197.parser/words/words.v.8.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.8.4 755 0 0
++file /spec2000/197.parser/words/words.v.10.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.10.3 755 0 0
++file /spec2000/197.parser/words/words.v.4.5 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.4.5 755 0 0
++file /spec2000/197.parser/words/words.v.4.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.4.3 755 0 0
++file /spec2000/197.parser/words/words.s ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.s 755 0 0
++file /spec2000/197.parser/words/words.v.8.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.8.3 755 0 0
++file /spec2000/197.parser/words/words.adj.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.adj.3 755 0 0
++file /spec2000/197.parser/words/words.v.5.4 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.5.4 755 0 0
++file /spec2000/197.parser/words/words.v.1.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.1.3 755 0 0
++file /spec2000/197.parser/words/words.v.1.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.1.1 755 0 0
++file /spec2000/197.parser/words/words.n.c.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.n.c.2 755 0 0
++file /spec2000/197.parser/words/words.v.8.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.8.2 755 0 0
++file /spec2000/197.parser/words/words.v.8.5 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.8.5 755 0 0
++file /spec2000/197.parser/words/words.v.6.3 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.6.3 755 0 0
++file /spec2000/197.parser/words/words.v.6.5 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.6.5 755 0 0
++file /spec2000/197.parser/words/words.v.4.1 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.4.1 755 0 0
++file /spec2000/197.parser/words/words.v.6.2 ../spec2000/benchspec/CINT2000/197.parser/data/all/input/words/words.v.6.2 755 0 0
++dir /spec2000/252.eon		755 0 0
++file /spec2000/252.eon/eon_base.mprc	../spec2000/benchspec/CINT2000/252.eon/exe/eon_base.mprc 755 0 0
++file /spec2000/252.eon/eon.dat ../spec2000/benchspec/CINT2000/252.eon/data/test/input/eon.dat 755 0 0
++file /spec2000/252.eon/spectra.dat ../spec2000/benchspec/CINT2000/252.eon/data/test/input/spectra.dat 755 0 0
++file /spec2000/252.eon/materials ../spec2000/benchspec/CINT2000/252.eon/data/test/input/materials 755 0 0
++file /spec2000/252.eon/chair.camera ../spec2000/benchspec/CINT2000/252.eon/data/test/input/chair.camera 755 0 0
++file /spec2000/252.eon/chair.surfaces ../spec2000/benchspec/CINT2000/252.eon/data/test/input/chair.surfaces 755 0 0
++file /spec2000/252.eon/chair.control ../spec2000/benchspec/CINT2000/252.eon/data/test/input/chair.control 755 0 0
++file /spec2000/252.eon/chair.control.cook ../spec2000/benchspec/CINT2000/252.eon/data/test/input/chair.control.cook 755 0 0
++file /spec2000/252.eon/chair.control.rushmeier ../spec2000/benchspec/CINT2000/252.eon/data/test/input/chair.control.rushmeier 755 0 0
++file /spec2000/252.eon/chair.control.kajiya ../spec2000/benchspec/CINT2000/252.eon/data/test/input/chair.control.kajiya 755 0 0
++file /spec2000/252.eon/pixels_out.cook.ref ../spec2000/benchspec/CINT2000/252.eon/data/test/output/pixels_out.cook 755 0 0
++file /spec2000/252.eon/pixels_out.rushmeier.ref ../spec2000/benchspec/CINT2000/252.eon/data/test/output/pixels_out.rushmeier 755 0 0
++file /spec2000/252.eon/pixels_out.kajiya.ref ../spec2000/benchspec/CINT2000/252.eon/data/test/output/pixels_out.kajiya 755 0 0
++dir /spec2000/254.gap		755 0 0
++file /spec2000/254.gap/gap_base.mprc	../spec2000/benchspec/CINT2000/254.gap/exe/gap_base.mprc 755 0 0
++file /spec2000/254.gap/test.in ../spec2000/benchspec/CINT2000/254.gap/data/test/input/test.in 755 0 0
++file /spec2000/254.gap/test.out.ref ../spec2000/benchspec/CINT2000/254.gap/data/test/output/test.out 755 0 0
++file /spec2000/254.gap/rowmodul.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/rowmodul.g 755 0 0
++file /spec2000/254.gap/polyfld.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/polyfld.g 755 0 0
++file /spec2000/254.gap/agnorm.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agnorm.g 755 0 0
++file /spec2000/254.gap/algfld.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/algfld.g 755 0 0
++file /spec2000/254.gap/agsubgrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agsubgrp.g 755 0 0
++file /spec2000/254.gap/sqstuff.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/sqstuff.g 755 0 0
++file /spec2000/254.gap/fpsgpres.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/fpsgpres.g 755 0 0
++file /spec2000/254.gap/ctmapcon.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctmapcon.g 755 0 0
++file /spec2000/254.gap/ratclass.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ratclass.g 755 0 0
++file /spec2000/254.gap/polyfin.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/polyfin.g 755 0 0
++file /spec2000/254.gap/algmat.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/algmat.g 755 0 0
++file /spec2000/254.gap/morpheus.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/morpheus.g 755 0 0
++file /spec2000/254.gap/agcomple.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agcomple.g 755 0 0
++file /spec2000/254.gap/permstbc.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permstbc.g 755 0 0
++file /spec2000/254.gap/ctfilter.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctfilter.g 755 0 0
++file /spec2000/254.gap/field.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/field.g 755 0 0
++file /spec2000/254.gap/list.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/list.g 755 0 0
++file /spec2000/254.gap/pq.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/pq.g 755 0 0
++file /spec2000/254.gap/lattperf.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/lattperf.g 755 0 0
++file /spec2000/254.gap/sq.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/sq.g 755 0 0
++file /spec2000/254.gap/permutat.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permutat.g 755 0 0
++file /spec2000/254.gap/mapping.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/mapping.g 755 0 0
++file /spec2000/254.gap/aghomomo.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/aghomomo.g 755 0 0
++file /spec2000/254.gap/ctcharac.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctcharac.g 755 0 0
++file /spec2000/254.gap/permgrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permgrp.g 755 0 0
++file /spec2000/254.gap/fptietze.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/fptietze.g 755 0 0
++file /spec2000/254.gap/classfun.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/classfun.g 755 0 0
++file /spec2000/254.gap/algebra.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/algebra.g 755 0 0
++file /spec2000/254.gap/abattoir.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/abattoir.g 755 0 0
++file /spec2000/254.gap/permcser.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permcser.g 755 0 0
++file /spec2000/254.gap/numfield.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/numfield.g 755 0 0
++file /spec2000/254.gap/integer.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/integer.g 755 0 0
++file /spec2000/254.gap/tom.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/tom.g 755 0 0
++file /spec2000/254.gap/chartabl.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/chartabl.g 755 0 0
++file /spec2000/254.gap/permhomo.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permhomo.g 755 0 0
++file /spec2000/254.gap/operatio.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/operatio.g 755 0 0
++file /spec2000/254.gap/ctautoms.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctautoms.g 755 0 0
++file /spec2000/254.gap/polynom.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/polynom.g 755 0 0
++file /spec2000/254.gap/aggroup.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/aggroup.g 755 0 0
++file /spec2000/254.gap/ctlattic.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctlattic.g 755 0 0
++file /spec2000/254.gap/cdaggrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/cdaggrp.g 755 0 0
++file /spec2000/254.gap/sagsbgrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/sagsbgrp.g 755 0 0
++file /spec2000/254.gap/permctbl.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permctbl.g 755 0 0
++file /spec2000/254.gap/combinat.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/combinat.g 755 0 0
++file /spec2000/254.gap/ctgapmoc.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctgapmoc.g 755 0 0
++file /spec2000/254.gap/permnorm.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permnorm.g 755 0 0
++file /spec2000/254.gap/grpctbl.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/grpctbl.g 755 0 0
++file /spec2000/254.gap/rational.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/rational.g 755 0 0
++file /spec2000/254.gap/grpprods.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/grpprods.g 755 0 0
++file /spec2000/254.gap/ring.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ring.g 755 0 0
++file /spec2000/254.gap/ctsymmet.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctsymmet.g 755 0 0
++file /spec2000/254.gap/grpcoset.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/grpcoset.g 755 0 0
++file /spec2000/254.gap/matring.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/matring.g 755 0 0
++file /spec2000/254.gap/permcose.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permcose.g 755 0 0
++file /spec2000/254.gap/string.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/string.g 755 0 0
++file /spec2000/254.gap/numtheor.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/numtheor.g 755 0 0
++file /spec2000/254.gap/ctmapusi.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctmapusi.g 755 0 0
++file /spec2000/254.gap/fpgrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/fpgrp.g 755 0 0
++file /spec2000/254.gap/agwords.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agwords.g 755 0 0
++file /spec2000/254.gap/ctgeneri.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctgeneri.g 755 0 0
++file /spec2000/254.gap/grphomom.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/grphomom.g 755 0 0
++file /spec2000/254.gap/aghall.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/aghall.g 755 0 0
++file /spec2000/254.gap/ctbasic.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctbasic.g 755 0 0
++file /spec2000/254.gap/grpelms.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/grpelms.g 755 0 0
++file /spec2000/254.gap/permag.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permag.g 755 0 0
++file /spec2000/254.gap/algfp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/algfp.g 755 0 0
++file /spec2000/254.gap/basic.grp ../spec2000/benchspec/CINT2000/254.gap/data/all/input/basic.grp 755 0 0
++file /spec2000/254.gap/grplatt.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/grplatt.g 755 0 0
++file /spec2000/254.gap/aginters.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/aginters.g 755 0 0
++file /spec2000/254.gap/matrix.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/matrix.g 755 0 0
++file /spec2000/254.gap/ctpermch.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctpermch.g 755 0 0
++file /spec2000/254.gap/alghomom.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/alghomom.g 755 0 0
++file /spec2000/254.gap/onecohom.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/onecohom.g 755 0 0
++file /spec2000/254.gap/module.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/module.g 755 0 0
++file /spec2000/254.gap/domain.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/domain.g 755 0 0
++file /spec2000/254.gap/vecspace.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/vecspace.g 755 0 0
++file /spec2000/254.gap/agprops.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agprops.g 755 0 0
++file /spec2000/254.gap/agcoset.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agcoset.g 755 0 0
++file /spec2000/254.gap/monomial.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/monomial.g 755 0 0
++file /spec2000/254.gap/matgrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/matgrp.g 755 0 0
++file /spec2000/254.gap/permprod.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permprod.g 755 0 0
++file /spec2000/254.gap/permoper.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permoper.g 755 0 0
++file /spec2000/254.gap/polyrat.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/polyrat.g 755 0 0
++file /spec2000/254.gap/ctpgrp.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/ctpgrp.g 755 0 0
++file /spec2000/254.gap/agclass.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agclass.g 755 0 0
++file /spec2000/254.gap/group.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/group.g 755 0 0
++file /spec2000/254.gap/gaussian.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/gaussian.g 755 0 0
++file /spec2000/254.gap/polystff.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/polystff.g 755 0 0
++file /spec2000/254.gap/matgrp.grp ../spec2000/benchspec/CINT2000/254.gap/data/all/input/matgrp.grp 755 0 0
++file /spec2000/254.gap/agcent.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agcent.g 755 0 0
++file /spec2000/254.gap/agctbl.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/agctbl.g 755 0 0
++file /spec2000/254.gap/rowspace.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/rowspace.g 755 0 0
++file /spec2000/254.gap/saggroup.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/saggroup.g 755 0 0
++file /spec2000/254.gap/init.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/init.g 755 0 0
++file /spec2000/254.gap/permbckt.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/permbckt.g 755 0 0
++file /spec2000/254.gap/cyclotom.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/cyclotom.g 755 0 0
++file /spec2000/254.gap/finfield.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/finfield.g 755 0 0
++file /spec2000/254.gap/galois.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/galois.g 755 0 0
++file /spec2000/254.gap/algfac.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/algfac.g 755 0 0
++file /spec2000/254.gap/dispatch.g ../spec2000/benchspec/CINT2000/254.gap/data/all/input/dispatch.g 755 0 0
++dir /spec2000/255.vortex		755 0 0
++file /spec2000/255.vortex/vortex_base.mprc	../spec2000/benchspec/CINT2000/255.vortex/exe/vortex_base.mprc 755 0 0
++file /spec2000/255.vortex/lendian.raw ../spec2000/benchspec/CINT2000/255.vortex/data/test/input/lendian.raw 755 0 0
++file /spec2000/255.vortex/lendian.rnv ../spec2000/benchspec/CINT2000/255.vortex/data/test/input/lendian.rnv 755 0 0
++file /spec2000/255.vortex/lendian.wnv ../spec2000/benchspec/CINT2000/255.vortex/data/test/input/lendian.wnv 755 0 0
++file /spec2000/255.vortex/persons.1k ../spec2000/benchspec/CINT2000/255.vortex/data/test/input/persons.1k 755 0 0
++file /spec2000/255.vortex/vortex.out.ref ../spec2000/benchspec/CINT2000/255.vortex/data/test/output/vortex.out 755 0 0
++dir /spec2000/256.bzip2		755 0 0
++file /spec2000/256.bzip2/bzip2_base.mprc	../spec2000/benchspec/CINT2000/256.bzip2/exe/bzip2_base.mprc 755 0 0
++file /spec2000/256.bzip2/input.random ../spec2000/benchspec/CINT2000/256.bzip2/data/test/input/input.random 755 0 0
++file /spec2000/256.bzip2/input.random.out.ref ../spec2000/benchspec/CINT2000/256.bzip2/data/test/output/input.random.out 755 0 0
++dir /spec2000/300.twolf		755 0 0
++file /spec2000/300.twolf/twolf_base.mprc	../spec2000/benchspec/CINT2000/300.twolf/exe/twolf_base.mprc 755 0 0
++file /spec2000/300.twolf/test.blk ../spec2000/benchspec/CINT2000/300.twolf/data/test/input/test.blk 755 0 0
++file /spec2000/300.twolf/test.cel ../spec2000/benchspec/CINT2000/300.twolf/data/test/input/test.cel 755 0 0
++file /spec2000/300.twolf/test.net ../spec2000/benchspec/CINT2000/300.twolf/data/test/input/test.net 755 0 0
++file /spec2000/300.twolf/test.par ../spec2000/benchspec/CINT2000/300.twolf/data/test/input/test.par 755 0 0
++file /spec2000/300.twolf/test.stdout.ref ../spec2000/benchspec/CINT2000/300.twolf/data/test/output/test.stdout 755 0 0
+diff --git a/kvm-tools/memory.h b/kvm-tools/memory.h
+index b28471f..7be94f1 100644
+--- a/kvm-tools/memory.h
++++ b/kvm-tools/memory.h
+@@ -11,7 +11,7 @@
+ #define EXT_IO_BASE		0x40000000
+ 
+ #define DRAM_BASE		0x80000000
+-#define DRAM_SIZE		0x12000000 /* 256M */
++#define DRAM_SIZE		0x24000000 /* 256M */
+ 
+ int setup_memory(void);
+ align_addr *align_malloc(u64 size, u64 align);
+diff --git a/scripts/run_spec2000.sh b/scripts/run_spec2000.sh
+new file mode 100644
+index 0000000..e1614b0
+--- /dev/null
++++ b/scripts/run_spec2000.sh
+@@ -0,0 +1,82 @@
++#!/bin/sh
++
++specDIR=/spec2000
++
++echo -n "run 164.gzip ..."
++${specDIR}/164.gzip/gzip_base.mprc ${specDIR}/164.gzip/input.compressed 2 > ${specDIR}/164.gzip/gzip.compressed.out 2>> ${specDIR}/164.gzip/gzip.compressed.err
++diff ${specDIR}/164.gzip/gzip.compressed.out ${specDIR}/164.gzip/gzip.compressed.out.ref > /dev/null
++if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
++
++echo -n "run 175.vpr place ..."
++cd ${specDIR}/175.vpr/
++${specDIR}/175.vpr/vpr_base.mprc net.in arch.in place.out dum.out -nodisp -place_only -init_t 5 -exit_t 0.005 -alpha_t 0.9412 -inner_num 2 > ${specDIR}/175.vpr/place_log.out 2>> ${specDIR}/175.vpr/place_log.err
++diff ${specDIR}/175.vpr/place_log.out ${specDIR}/175.vpr/place_log.out.ref > /dev/null
++if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
++
++echo -n "run 175.vpr route ..."
++cd ${specDIR}/175.vpr/
++${specDIR}/175.vpr/vpr_base.mprc net.in arch.in place.in route.out -nodisp -route_only -route_chan_width 15 -pres_fac_mult 2 -acc_fac 1 -first_iter_pres_fac 4 -initial_pres_fac 8 > ${specDIR}/175.vpr/route_log.out 2>> ${specDIR}/175.vpr/route_log.err
++diff ${specDIR}/175.vpr/route.out ${specDIR}/175.vpr/route.out.ref > /dev/null
++if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
++
++echo -n "run 176.gcc ..."
++${specDIR}/176.gcc/cc1_base.mprc ${specDIR}/176.gcc/cccp.i -o ${specDIR}/176.gcc/cccp.s >${specDIR}/176.gcc/cccp.out 2>> ${specDIR}/176.gcc/cccp.err
++diff ${specDIR}/176.gcc/cccp.s ${specDIR}/176.gcc/cccp.s.ref > /dev/null
++if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
++
++echo -n "run 181.mcf ..."
++${specDIR}/181.mcf/mcf_base.mprc ${specDIR}/181.mcf/inp.in >${specDIR}/181.mcf/inp.out 2>> ${specDIR}/181.mcf/inp.err
++diff ${specDIR}/181.mcf/inp.out ${specDIR}/181.mcf/inp.out.ref > /dev/null
++if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
++
++echo -n "run 186.crafty ..."
++${specDIR}/186.crafty/crafty_base.mprc < ${specDIR}/186.crafty/crafty.in > ${specDIR}/186.crafty/crafty.out 2>> ${specDIR}/186.crafty/crafty.err
++diff ${specDIR}/186.crafty/crafty.out ${specDIR}/186.crafty/crafty.out.ref > /dev/null
++if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
++
++echo -n "run 197.parser ..."
++cd ${specDIR}/197.parser
++${specDIR}/197.parser/parser_base.mprc ${specDIR}/197.parser/2.1.dict -batch < ${specDIR}/197.parser/test.in > ${specDIR}/197.parser/test.out 2>> ${specDIR}/197.parser/test.err
++diff ${specDIR}/197.parser/test.out ${specDIR}/197.parser/test.out.ref > /dev/null
++if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
++
++#echo -n "run 252.eon cook.."
++#cd ${specDIR}/252.eon
++#${specDIR}/252.eon/eon_base.mprc chair.control.cook chair.camera chair.surfaces chair.cook.ppm ppm pixels_out.cook > cook_log.out 2>> cook_log.err
++#diff ${specDIR}/252.eon/pixels_out.cook ${specDIR}/252.eon/pixels_out.cook.ref > /dev/null
++#if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
++#
++#echo -n "run 252.eon rushmeier ..."
++#cd ${specDIR}/252.eon
++#${specDIR}/252.eon/eon_base.mprc chair.control.rushmeier chair.camera chair.surfaces chair.rushmeier.ppm ppm pixels_out.rushmeier > rushmeier_log.out 2>> rushmeier_log.err
++#diff ${specDIR}/252.eon/pixels_out.rushmeier ${specDIR}/252.eon/pixels_out.rushmeier.ref > /dev/null
++#if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
++#
++#echo -n "run 252.eon kajiya ..."
++#cd ${specDIR}/252.eon
++#${specDIR}/252.eon/eon_base.mprc chair.control.kajiya chair.camera chair.surfaces chair.kajiya.ppm ppm pixels_out.kajiya > kajiya_log.out 2>> kajiya_log.err
++#diff ${specDIR}/252.eon/pixels_out.kajiya ${specDIR}/252.eon/pixels_out.kajiya.ref > /dev/null
++#if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
++#
++#echo -n "run 254.gap ..."
++#cd ${specDIR}/254.gap
++#${specDIR}/254.gap/gap_base.mprc -l ./ -q -m 64M < ${specDIR}/254.gap/test.in > ${specDIR}/254.gap/test.out 2>> ${specDIR}/254.gap/test.err
++#diff ${specDIR}/254.gap/test.out ${specDIR}/254.gap/test.out.ref > /dev/null
++#if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
++
++echo -n "run 255.vortex ..."
++cd ${specDIR}/255.vortex
++${specDIR}/255.vortex/vortex_base.mprc lendian.raw > ${specDIR}/255.vortex/vortex.out 2>>${specDIR}/255.vortex/vortex.err
++diff ${specDIR}/255.vortex/vortex.out ${specDIR}/255.vortex/vortex.out.ref > /dev/null
++if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
++
++echo -n "run 256.bzip2 ..."
++${specDIR}/256.bzip2/bzip2_base.mprc ${specDIR}/256.bzip2/input.random 2 > ${specDIR}/256.bzip2/input.random.out 2>>${specDIR}/256.bzip2/input.random.err
++diff ${specDIR}/256.bzip2/input.random.out ${specDIR}/256.bzip2/input.random.out.ref > /dev/null
++if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
++
++echo -n "run 300.twolf ..."
++cd ${specDIR}/300.twolf
++${specDIR}/300.twolf/twolf_base.mprc test > ${specDIR}/300.twolf/test.stdout 2>>${specDIR}/300.twolf/twolf.err
++diff ${specDIR}/300.twolf/test.stdout ${specDIR}/300.twolf/test.stdout.ref > /dev/null
++if [ $? == 0 ]; then echo "success"; else echo "fail"; fi
+diff --git a/scripts/test-qemu.sh b/scripts/test-qemu.sh
+index 071a737..e0e37db 100755
+--- a/scripts/test-qemu.sh
++++ b/scripts/test-qemu.sh
+@@ -1,10 +1,18 @@
+ #!/bin/sh
+ 
+ basepath=$(cd `dirname $0`; pwd)
+-benchs=`ls $basepath/../install/riscv-tests/share/riscv-tests/benchmarks/*.riscv`
+ qemu=$basepath/../install/riscv-qemu/bin/qemu-system-riscv64
++
++benchs=`ls $basepath/../install/riscv-tests/share/riscv-tests/benchmarks/*.riscv`
+ for bench in $benchs; do \
+     echo "$bench"; \
+-    $qemu -nographic -kernel $bench; \
++    $qemu -nographic -machine spike_v1.10 -kernel $bench; \
++    echo ""
++done
++
++isa_tests=`ls $basepath/../install/riscv-tests/share/riscv-tests/isa/rv64* | grep -v .dump`
++for isa_test in $isa_tests; do \
++    echo "$isa_test"; \
++    $qemu -nographic -machine spike_v1.10 -kernel $isa_test; \
+     echo ""
+ done
