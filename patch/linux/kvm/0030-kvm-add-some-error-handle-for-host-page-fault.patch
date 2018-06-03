@@ -1,0 +1,30 @@
+From 3eeb3833e46ef17391afea3d96fb006e992c3809 Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sun, 3 Jun 2018 14:55:03 +0800
+Subject: [PATCH 30/30] kvm: add some error handle for host page fault
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/kvm/kvm_riscv.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/arch/riscv/kvm/kvm_riscv.c b/arch/riscv/kvm/kvm_riscv.c
+index 7940343..c8aee53 100644
+--- a/arch/riscv/kvm/kvm_riscv.c
++++ b/arch/riscv/kvm/kvm_riscv.c
+@@ -424,7 +424,11 @@ int handle_host_page_fault(struct kvm_vcpu *vcpu, unsigned long gpa)
+ 		return -1; /* Maybe mmio, not handle now */
+ 
+ 	pfn = __gfn_to_pfn_memslot(slot, gfn, false, &async, false, &writable);
+-	/* What to do if async is true? */
++	if (is_error_noslot_pfn(pfn)) {
++		printk("cannot handle host page fault vcpu %x, gpa %lx\n",
++				vcpu->vcpu_id, gpa);
++		return -2;
++	}
+ 
+ 	return build_tdp_page_table(vcpu, gfn, pfn);
+ }
+-- 
+2.7.4
+
