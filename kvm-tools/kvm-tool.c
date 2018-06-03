@@ -8,9 +8,10 @@
 #include <unistd.h>
 #include <stdarg.h>
 
+#include "kernel.h"
 #include "kvm.h"
-#include "memory.h"
 #include "loader.h"
+#include "memory.h"
 
 int kvm_fd = -1;
 int vm_fd = -1;

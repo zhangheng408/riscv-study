@@ -1,0 +1,29 @@
+From 34dda40df1cd7c388a9f4493cae8559710e89f8c Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Sun, 3 Jun 2018 14:52:29 +0800
+Subject: [PATCH 29/30] redefine memory layout
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ arch/riscv/include/asm/kvm_host.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index b244aa48..0e61bac 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -113,9 +113,9 @@ struct kvm_arch_memory_slot {
+ #define EXT_IO_BASE						_AC(0x40000000, UL)
+ #define DRAM_BASE						_AC(0x80000000, UL)
+ 
+-#define KVM_RISCV_DEFAULT_DTB			(DRAM_BASE + 0xc00000)
++#define KVM_RISCV_DEFAULT_DTB			(DRAM_BASE + 0x10000000)
+ /* kernel entry must be aligned with (PAGE_SIZE * PTRS_PER_PTE) */
+-#define KVM_RISCV_DEFAULT_KERNEL_ENTRY	(DRAM_BASE + PAGE_SIZE * PTRS_PER_PTE)
++#define KVM_RISCV_DEFAULT_KERNEL_ENTRY	(DRAM_BASE)
+ 
+ struct kvm_arch {
+ 	unsigned long dtb_addr;
+-- 
+2.7.4
+

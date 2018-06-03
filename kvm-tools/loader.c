@@ -1,7 +1,9 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "memory.h"
 #include "loader.h"
+#include "kernel.h"
 
 void* load_file(void* buffer, char *file_name, size_t max_size) {
     FILE *file_ptr;
@@ -24,7 +26,17 @@ void* load_file(void* buffer, char *file_name, size_t max_size) {
 	}
     rewind(file_ptr);
 
-    /* 将文件拷贝到dram中 */
+    if (buffer == NULL) {
+        buffer = malloc(file_size);
+        if (buffer == NULL) {
+            printf("cannot alloc buffer for %s with %llx/%llx\n",
+                    file_name, file_size, DRAM_BASE);
+            fclose(file_ptr);
+            return NULL;
+        }
+    }
+
+    /* 将文件拷贝到buffer中 */
     result = fread(buffer, 1, file_size, file_ptr);
     if(result != file_size){
         printf("load half file 0x%lx/0x%lx\n", result, file_size);
@@ -40,11 +52,6 @@ void* load_file(void* buffer, char *file_name, size_t max_size) {
 
 extern align_addr *dram_base;
 
-void* load_kernel(char *kernel_file_name){
-	void* buffer = (void *)((char *)dram_base->aligned_addr + KERNEL_DRAM_OFFSET);
-
-	return load_file(buffer, kernel_file_name, DRAM_SIZE - KERNEL_DRAM_OFFSET);
-}
 void* load_dtb(char *dtb_file_name){
 	void* buffer = (void *)((char *)dram_base->aligned_addr + DTB_DRAM_OFFSET);
 
