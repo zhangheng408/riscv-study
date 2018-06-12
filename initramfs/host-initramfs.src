@@ -20,6 +20,7 @@ file /etc/inittab	../../initramfs/etc/inittab	755 0 0
 
 file /bin/busybox	../busybox/_install/bin/busybox 755 0 0
 file /bin/kvm-tool	../../install/kvm-tool 755 0 0
+file /bin/read_instret	../../install/read_instret 755 0 0
 file /vmlinux-guest	../../install/vmlinux-guest 755 0 0
 file /spike-10.dtb	../../install/spike-10.dtb 755 0 0
 

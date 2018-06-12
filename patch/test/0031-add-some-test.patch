@@ -1,0 +1,98 @@
+From 7d60c99f5d6e443117ad12c5200662112ce7e66d Mon Sep 17 00:00:00 2001
+From: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+Date: Tue, 12 Jun 2018 08:18:24 +0800
+Subject: [PATCH 31/31] add some test
+
+Signed-off-by: Zhang Heng <zhangheng@mprc.pku.edu.cn>
+---
+ cpu-exec.c               |  6 ++++++
+ target-riscv/cpu.h       |  5 +++++
+ target-riscv/helper.c    |  5 +++++
+ target-riscv/op_helper.c | 15 +++++++++++++++
+ 4 files changed, 31 insertions(+)
+
+diff --git a/cpu-exec.c b/cpu-exec.c
+index 9f4bd0b..58ed816 100644
+--- a/cpu-exec.c
++++ b/cpu-exec.c
+@@ -163,6 +163,12 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, TranslationBlock *itb)
+     }
+ #endif /* DEBUG_DISAS */
+ 
++#if !defined(CONFIG_USER_ONLY)
++    env->instret += itb->icount;
++    if (env->virt_mode) {
++       env->vinstret += itb->icount;
++    }
++#endif
+     cpu->can_do_io = !use_icount;
+     ret = tcg_qemu_tb_exec(env, tb_ptr);
+     cpu->can_do_io = 1;
+diff --git a/target-riscv/cpu.h b/target-riscv/cpu.h
+index 45b941e..52b06b4 100644
+--- a/target-riscv/cpu.h
++++ b/target-riscv/cpu.h
+@@ -122,6 +122,11 @@ typedef struct CPURISCVState {
+     target_ulong priv_ver;
+     target_ulong misa_mask;
+     target_ulong misa;
++    target_ulong instret;
++    target_ulong vinstret;
++    target_ulong exceptions[16];
++    target_ulong interrupts[12];
++    target_ulong hret;
+ 
+ #ifdef CONFIG_USER_ONLY
+     uint32_t amoinsn;
+diff --git a/target-riscv/helper.c b/target-riscv/helper.c
+index f85ed22..0b2caba 100644
+--- a/target-riscv/helper.c
++++ b/target-riscv/helper.c
+@@ -575,6 +575,11 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+     target_ulong virt_int = (cs->exception_index & (0x70000000)) && (bit < 64)
+         && ((1UL<<bit) & env->hvip & env->mie) && !((1UL<<bit) & env->mip & env->mie);
+ 
++    if (cs->exception_index & (0x70000000)) {
++        if (bit < 12) env->interrupts[bit]++;
++    } else {
++        if (bit < 16) env->exceptions[bit]++;
++    }
+     if (env->virt_mode == 1 && env->priv <= PRV_S && bit < 64 && !((hdeleg >> bit) & 1) && !virt_int) {
+         /* trap from virtual machine and not handled int VM */
+         /* perform VM Exit */
+diff --git a/target-riscv/op_helper.c b/target-riscv/op_helper.c
+index f8fde3a..5bb42e1 100644
+--- a/target-riscv/op_helper.c
++++ b/target-riscv/op_helper.c
+@@ -521,6 +521,20 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
+     case CSR_TIMEH:
+         return (target_ulong)(cpu_riscv_read_rtc() >> 32);
+     case CSR_INSTRET:
++        fprintf(stderr,"pc %lx,inst%ld/%ld,time %ld,hret %ld, int %ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld, exp %ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld\n",
++                env->pc, env->instret, env->vinstret, get_clock_realtime()/1000000, env->hret,
++                env->interrupts[0], env->interrupts[1], env->interrupts[2], env->interrupts[3], env->interrupts[4], env->interrupts[5],
++                env->interrupts[6], env->interrupts[7], env->interrupts[8], env->interrupts[9], env->interrupts[10], env->interrupts[11],
++                env->exceptions[0], env->exceptions[1], env->exceptions[2], env->exceptions[3],
++                env->exceptions[4], env->exceptions[5], env->exceptions[6], env->exceptions[7],
++                env->exceptions[8], env->exceptions[9], env->exceptions[10], env->exceptions[11],
++                env->exceptions[12], env->exceptions[13], env->exceptions[14], env->exceptions[15]);
++        if (env->virt_mode) {
++            return env->vinstret;
++        } else {
++            return env->instret;
++        }
++        break;
+     case CSR_CYCLE:
+         if (ctr_ok) {
+             return cpu_riscv_read_instret(env);
+@@ -860,6 +874,7 @@ target_ulong helper_hret(CPURISCVState *env, target_ulong cpu_pc_deb)
+ 
+     perform_vm_entry(env);
+ 
++    env->hret++;
+     return retpc;
+ }
+ 
+-- 
+2.7.4
+

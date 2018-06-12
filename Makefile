@@ -216,6 +216,13 @@ kvm-tool-make:
 		-static										\
 		-o $(DIR_INSTALL)/kvm-tool
 
+test-tool-make:
+	@$(CROSS_PREFIX)gcc								\
+		$(DIR_RISCV)/scripts/read_instret.c			\
+		-I $(DIR_INSTALL)/usr/include				\
+		-static										\
+		-o $(DIR_INSTALL)/read_instret
+
 pk-make:
 	@echo "clean old build ..."
 	@rm -rf $(DIR_INSTALL)/riscv-pk
